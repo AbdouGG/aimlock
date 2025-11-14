@@ -732,6 +732,29 @@ local function UpdateFOVCircle()
     end
 end
 
+-- FIXED: Proper visibility check
+local function IsVisible(targetPart)
+    local origin = Camera.CFrame.Position
+    local targetPos = targetPart.Position
+    local direction = (targetPos - origin).Unit
+    local distance = (targetPos - origin).Magnitude
+    
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, targetPart.Parent}
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+    -- Cast ray towards the target part
+    local raycastResult = workspace:Raycast(origin, direction * distance, raycastParams)
+    
+    -- If nothing was hit, we have clear line of sight
+    if not raycastResult then
+        return true
+    end
+    
+    -- If something was hit before reaching the target, it's not visible
+    return false
+end
+
 -- Utility Functions
 local function UpdateVelocityBuffer(currentVelocity)
     table.insert(State.VelocityBuffer, currentVelocity)
@@ -775,17 +798,6 @@ local function GetPlayerPing()
     return Stats.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
 end
 
-local function IsVisible(targetPart)
-    local origin = Camera.CFrame.Position
-    local direction = (targetPart.Position - origin).Unit
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
-    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-
-    local raycastResult = workspace:Raycast(origin, direction * 1000, raycastParams)
-    return raycastResult and raycastResult.Instance:IsDescendantOf(targetPart.Parent)
-end
-
 local function GetNearestPlayerInFOV()
     local nearestDistance, nearestPlayer = math.huge, nil
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
@@ -796,10 +808,10 @@ local function GetNearestPlayerInFOV()
             if humanoid and (not Config.IgnoreDeadPlayers or humanoid.Health > 0) then
                 if not Config.TeamCheck or player.Team ~= LocalPlayer.Team then
                     
-                    -- Determine which part to check for this player (check Head for target acquisition)
-                    local partToCheck = Config.RandomTargetPart and "Head" or Config.AimbotTargetPart
-                    
+                    -- Use Head for target acquisition (always visible check on head)
+                    local partToCheck = "Head"
                     local targetPart = player.Character:FindFirstChild(partToCheck)
+                    
                     if targetPart then
                         local screenPos, onScreen = Camera:WorldToScreenPoint(targetPart.Position)
                         
@@ -990,7 +1002,6 @@ RunService.RenderStepped:Connect(function()
             local targetPartName = Config.AimbotTargetPart
             
             if Config.RandomTargetPart then
-                -- NEW: Update random part based on configured interval or when target changes
                 local currentTime = tick()
                 if State.TargetPlayer ~= State.LastTargetPlayer or 
                    (currentTime - State.LastRandomPartUpdate >= Config.RandomTargetPartInterval) then
@@ -1006,6 +1017,19 @@ RunService.RenderStepped:Connect(function()
             
             local targetPart = State.TargetPlayer.Character:FindFirstChild(targetPartName)
             if targetPart then
+                -- CRITICAL FIX: Check if the specific part is visible when WallCheck is enabled
+                if Config.WallCheck and not IsVisible(targetPart) then
+                    -- Part is behind a wall, don't aim at it
+                    targetLabel.Text = "Target: None (blocked)"
+                    State.TargetPlayer = nil
+                    State.LastTargetPosition = nil
+                    State.VelocityBuffer = {}
+                    State.CurrentRandomPart = nil
+                    State.LastTargetPlayer = nil
+                    return -- Skip aiming this frame
+                end
+                
+                -- Part is visible, proceed with aiming
                 local targetPos = targetPart.Position
                 local targetVel = targetPart.Velocity
                 
@@ -1047,14 +1071,12 @@ RunService.RenderStepped:Connect(function()
             targetPartLabel.Text = "Part: " .. (Config.RandomTargetPart and "Random" or Config.AimbotTargetPart)
             State.LastTargetPosition = nil
             State.VelocityBuffer = {}
-            -- Reset random part state when no target
             State.CurrentRandomPart = nil
             State.LastTargetPlayer = nil
         end
     else
         targetLabel.Text = "Target: None"
         targetPartLabel.Text = "Part: " .. (Config.RandomTargetPart and "Random" or Config.AimbotTargetPart)
-        -- Reset random part state when aimbot is inactive
         State.CurrentRandomPart = nil
         State.LastTargetPlayer = nil
     end
