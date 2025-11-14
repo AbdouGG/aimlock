@@ -53,9 +53,7 @@ local State = {
     VelocityBuffer = {},
     LastTargetPosition = nil,
     LastUpdateTime = tick(),
-    RainbowHue = 0,
-    CurrentRandomPart = nil, -- NEW: Stores the currently selected random part
-    LastTargetPlayer = nil   -- NEW: Tracks last target for part regeneration
+    RainbowHue = 0
 }
 
 -- Create Custom UI
@@ -443,8 +441,6 @@ CreateToggle("Ignore Dead", true, function(value) Config.IgnoreDeadPlayers = val
 -- NEW: Random Part Toggle
 CreateToggle("Random Part", false, function(value) 
     Config.RandomTargetPart = value 
-    State.CurrentRandomPart = nil
-    State.LastTargetPlayer = nil
 end, AimbotTab.Content)
 
 CreateSlider("Smoothness", 0, 100, Config.AimbotSmoothness * 100, function(value)
@@ -767,13 +763,8 @@ local function GetNearestPlayerInFOV()
             if humanoid and (not Config.IgnoreDeadPlayers or humanoid.Health > 0) then
                 if not Config.TeamCheck or player.Team ~= LocalPlayer.Team then
                     
-                    -- Determine which part to check for this player
-                    local partToCheck = Config.AimbotTargetPart
-                    if Config.RandomTargetPart then
-                        -- In random mode, we'll check the Head first for target acquisition
-                        -- The random part will be selected after acquiring the target
-                        partToCheck = "Head"
-                    end
+                    -- Determine which part to check for this player (check Head for target acquisition)
+                    local partToCheck = Config.RandomTargetPart and "Head" or Config.AimbotTargetPart
                     
                     local targetPart = player.Character:FindFirstChild(partToCheck)
                     if targetPart then
@@ -962,20 +953,15 @@ RunService.RenderStepped:Connect(function()
         if State.TargetPlayer then
             targetLabel.Text = "Target: " .. State.TargetPlayer.Name
             
-            -- Determine which part to aim at
+            -- Determine which part to aim at (NEW: Continuous random selection)
             local targetPartName = Config.AimbotTargetPart
             if Config.RandomTargetPart then
-                -- If random mode is enabled, select a random part for this target
-                -- If we have a new target, generate a new random part
-                if State.TargetPlayer ~= State.LastTargetPlayer then
-                    State.CurrentRandomPart = GetRandomBodyPart(State.TargetPlayer.Character)
-                    State.LastTargetPlayer = State.TargetPlayer
-                end
-                targetPartName = State.CurrentRandomPart or Config.AimbotTargetPart
+                -- Continuously pick a new random part every frame
+                targetPartName = GetRandomBodyPart(State.TargetPlayer.Character)
             end
             
             -- Update target part display
-            targetPartLabel.Text = "Part: " .. (Config.RandomTargetPart and (State.CurrentRandomPart or "Random") or Config.AimbotTargetPart)
+            targetPartLabel.Text = "Part: " .. targetPartName
             
             local targetPart = State.TargetPlayer.Character:FindFirstChild(targetPartName)
             if targetPart then
@@ -1020,14 +1006,10 @@ RunService.RenderStepped:Connect(function()
             targetPartLabel.Text = "Part: " .. (Config.RandomTargetPart and "Random" or Config.AimbotTargetPart)
             State.LastTargetPosition = nil
             State.VelocityBuffer = {}
-            State.CurrentRandomPart = nil
-            State.LastTargetPlayer = nil
         end
     else
         targetLabel.Text = "Target: None"
         targetPartLabel.Text = "Part: " .. (Config.RandomTargetPart and "Random" or Config.AimbotTargetPart)
-        State.CurrentRandomPart = nil
-        State.LastTargetPlayer = nil
     end
 end)
 
