@@ -41,7 +41,7 @@ local Config = {
     RainbowFOV = false,
     RainbowESP = false,
     RandomTargetPart = false,
-    RandomTargetPartInterval = 0.5 -- NEW: Interval for random part changes
+    RandomTargetPartInterval = 0.25 -- Default 0.25 seconds
 }
 
 -- State
@@ -55,9 +55,9 @@ local State = {
     LastTargetPosition = nil,
     LastUpdateTime = tick(),
     RainbowHue = 0,
-    CurrentRandomPart = nil,    -- NEW: Stores the currently selected random part
-    LastRandomPartUpdate = 0,   -- NEW: Tracks last random part change time
-    LastTargetPlayer = nil      -- NEW: Tracks last target for part regeneration
+    CurrentRandomPart = nil,
+    LastRandomPartUpdate = 0,
+    LastTargetPlayer = nil
 }
 
 -- Create Custom UI
@@ -442,13 +442,17 @@ CreateToggle("Team Check", false, function(value) Config.TeamCheck = value end, 
 CreateToggle("Wall Check", true, function(value) Config.WallCheck = value end, AimbotTab.Content)
 CreateToggle("Ignore Dead", true, function(value) Config.IgnoreDeadPlayers = value end, AimbotTab.Content)
 
--- NEW: Random Part Toggle
+-- NEW RANDOM SECTION
+CreateSection("RANDOM", AimbotTab.Content)
 CreateToggle("Random Part", false, function(value) 
     Config.RandomTargetPart = value 
     -- Reset state when toggled
     State.CurrentRandomPart = nil
     State.LastTargetPlayer = nil
     State.LastRandomPartUpdate = 0
+end, AimbotTab.Content)
+CreateSlider("Interval (s)", 10, 200, Config.RandomTargetPartInterval * 100, function(value)
+    Config.RandomTargetPartInterval = value / 100
 end, AimbotTab.Content)
 
 CreateSlider("Smoothness", 0, 100, Config.AimbotSmoothness * 100, function(value)
@@ -965,7 +969,7 @@ RunService.RenderStepped:Connect(function()
             local targetPartName = Config.AimbotTargetPart
             
             if Config.RandomTargetPart then
-                -- NEW: Update random part every 0.25 seconds or when target changes
+                -- NEW: Update random part based on configured interval or when target changes
                 local currentTime = tick()
                 if State.TargetPlayer ~= State.LastTargetPlayer or 
                    (currentTime - State.LastRandomPartUpdate >= Config.RandomTargetPartInterval) then
