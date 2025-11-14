@@ -41,7 +41,7 @@ local Config = {
     RainbowFOV = false,
     RainbowESP = false,
     RandomTargetPart = false,
-    RandomTargetPartInterval = 0.25 -- NEW: Interval for random part changes
+    RandomTargetPartInterval = 0.5 -- NEW: Interval for random part changes
 }
 
 -- State
