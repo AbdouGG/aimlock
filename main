@@ -12,7 +12,7 @@ local frameCount = 0
 -- Configuration
 local Config = {
     WindowName = "Nurk Hub | V1.6.6",
-    DiscordInvite = "https://discord.com/invite/8ub8UQNzbT ",
+    DiscordInvite = "https://discord.com/invite/8ub8UQNzbT  ",
     AimbotKey = Enum.KeyCode.Q,
     ESPColor = Color3.fromRGB(255, 0, 0),
     AimbotSmoothness = 0.5,
@@ -290,7 +290,7 @@ local function CreateToggle(name, default, callback, parent)
     return toggleFrame
 end
 
--- Function to create slider (FIXED FOR MOBILE TOUCH)
+-- Function to create slider (FIXED FOR MOBILE)
 local function CreateSlider(name, min, max, default, callback, parent)
     local sliderFrame = Instance.new("Frame")
     sliderFrame.Name = name .. "Slider"
@@ -335,59 +335,51 @@ local function CreateSlider(name, min, max, default, callback, parent)
     sliderFillCorner.CornerRadius = UDim.new(1, 0)
     sliderFillCorner.Parent = sliderFill
     
-    local dragging = false
+    local isDragging = false
     
-    -- NEW: Function to check if position is within slider bounds
-    local function isPositionInSlider(position)
-        return position.X >= sliderBar.AbsolutePosition.X and 
-               position.X <= sliderBar.AbsolutePosition.X + sliderBar.AbsoluteSize.X and
-               position.Y >= sliderBar.AbsolutePosition.Y and 
-               position.Y <= sliderBar.AbsolutePosition.Y + sliderBar.AbsoluteSize.Y
+    -- Update function
+    local function updateSlider(position)
+        local relativePos = math.clamp(
+            (position.X - sliderBar.AbsolutePosition.X) / sliderBar.AbsoluteSize.X, 
+            0, 
+            1
+        )
+        local value = min + (max - min) * relativePos
+        
+        sliderFill.Size = UDim2.new(relativePos, 0, 1, 0)
+        label.Text = name .. ": " .. math.floor(value)
+        callback(value)
     end
     
-    -- NEW: Unified input handling for both mouse and touch
-    local function handleInput(input, gameProcessed)
-        if gameProcessed then return end
-        
+    -- Input began (both mouse and touch)
+    sliderBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or 
            input.UserInputType == Enum.UserInputType.Touch then
-            if isPositionInSlider(input.Position) then
-                dragging = true
-                -- Update immediately on click/touch
-                local relativePos = math.clamp((input.Position.X - sliderBar.AbsolutePosition.X) / sliderBar.AbsoluteSize.X, 0, 1)
-                local value = min + (max - min) * relativePos
-                
-                sliderFill.Size = UDim2.new(relativePos, 0, 1, 0)
-                label.Text = name .. ": " .. math.floor(value)
-                callback(value)
+            isDragging = true
+            
+            -- Update immediately on click/touch
+            updateSlider(input.Position)
+            
+            -- Listen for when the input ends
+            local connection
+            connection = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    isDragging = false
+                    connection:Disconnect()
+                end
+            end)
+        end
+    end)
+    
+    -- Input changed (both mouse movement and touch movement)
+    UserInputService.InputChanged:Connect(function(input)
+        if isDragging then
+            if input.UserInputType == Enum.UserInputType.MouseMovement or 
+               input.UserInputType == Enum.UserInputType.Touch then
+                updateSlider(input.Position)
             end
         end
-    end
-    
-    local function handleInputEnded(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
-           input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end
-    
-    local function handleInputChanged(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
-                         input.UserInputType == Enum.UserInputType.Touch) then
-            -- Allow dragging anywhere on screen once started
-            local relativePos = math.clamp((input.Position.X - sliderBar.AbsolutePosition.X) / sliderBar.AbsoluteSize.X, 0, 1)
-            local value = min + (max - min) * relativePos
-            
-            sliderFill.Size = UDim2.new(relativePos, 0, 1, 0)
-            label.Text = name .. ": " .. math.floor(value)
-            callback(value)
-        end
-    end
-    
-    -- Connect to UserInputService instead of individual objects
-    UserInputService.InputBegan:Connect(handleInput)
-    UserInputService.InputEnded:Connect(handleInputEnded)
-    UserInputService.InputChanged:Connect(handleInputChanged)
+    end)
     
     return sliderFrame
 end
