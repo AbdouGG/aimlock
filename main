@@ -28,7 +28,7 @@ local Config = {
     ESPDistance = false,
     ESPHealth = false,
     ESPTracer = false,
-    MaxESPDistance = 5000, -- INCREASED from 1000 to 5000
+    MaxESPDistance = 1000,
     PingCompensation = false,
     MaxPingPrediction = 0.15,
     IgnoreDeadPlayers = true,
@@ -837,127 +837,61 @@ end
 
 -- ESP Functions
 local function CreateESPObject(player)
-    -- Prevent duplicate ESP objects
-    if State.ESPObjects[player] then
-        return
-    end
-    
     local esp = {}
     
-    -- Create Drawing objects with pcall for safety
-    local success, box = pcall(function() return Drawing.new("Square") end)
-    if success then
-        esp.Box = box
-        esp.Box.Thickness = 1
-        esp.Box.Filled = false
-        esp.Box.Color = Config.ESPColor
-        esp.Box.Visible = false
-    end
-    
-    local success, name = pcall(function() return Drawing.new("Text") end)
-    if success then
-        esp.Name = name
-        esp.Name.Center = true
-        esp.Name.Outline = true
-        esp.Name.Color = Config.ESPColor
-        esp.Name.Size = 14
-        esp.Name.Visible = false
-    end
-    
-    local success, distance = pcall(function() return Drawing.new("Text") end)
-    if success then
-        esp.Distance = distance
-        esp.Distance.Center = true
-        esp.Distance.Outline = true
-        esp.Distance.Color = Config.ESPColor
-        esp.Distance.Size = 14
-        esp.Distance.Visible = false
-    end
-    
-    local success, health = pcall(function() return Drawing.new("Text") end)
-    if success then
-        esp.Health = health
-        esp.Health.Center = true
-        esp.Health.Outline = true
-        esp.Health.Color = Config.ESPColor
-        esp.Health.Size = 14
-        esp.Health.Visible = false
-    end
-    
-    local success, tracer = pcall(function() return Drawing.new("Line") end)
-    if success then
-        esp.Tracer = tracer
-        esp.Tracer.Thickness = 1
-        esp.Tracer.Color = Config.ESPColor
-        esp.Tracer.Visible = false
-    end
-    
+    esp.Box = Drawing.new("Square")
+    esp.Box.Thickness = 1
+    esp.Box.Filled = false
+    esp.Box.Color = Config.ESPColor
+    esp.Box.Visible = false
+
+    esp.Name = Drawing.new("Text")
+    esp.Name.Center = true
+    esp.Name.Outline = true
+    esp.Name.Color = Config.ESPColor
+    esp.Name.Size = 14
+    esp.Name.Visible = false
+
+    esp.Distance = Drawing.new("Text")
+    esp.Distance.Center = true
+    esp.Distance.Outline = true
+    esp.Distance.Color = Config.ESPColor
+    esp.Distance.Size = 14
+    esp.Distance.Visible = false
+
+    esp.Health = Drawing.new("Text")
+    esp.Health.Center = true
+    esp.Health.Outline = true
+    esp.Health.Color = Config.ESPColor
+    esp.Health.Size = 14
+    esp.Health.Visible = false
+
+    esp.Tracer = Drawing.new("Line")
+    esp.Tracer.Thickness = 1
+    esp.Tracer.Color = Config.ESPColor
+    esp.Tracer.Visible = false
+
     State.ESPObjects[player] = esp
-    print("✅ Created ESP for: " .. player.Name)
 end
 
 local function RemoveESPObject(player)
     local esp = State.ESPObjects[player]
     if esp then
-        for key, object in pairs(esp) do
-            if typeof(object) == "table" and object.Remove then
-                pcall(function() object:Remove() end)
-            end
+        for _, object in pairs(esp) do
+            object:Remove()
         end
         State.ESPObjects[player] = nil
-        print("❌ Removed ESP for: " .. player.Name)
     end
 end
 
 local function UpdateESP()
-    -- If ESP is disabled, hide everything and return early
-    if not State.ESPEnabled then
-        for player, esp in pairs(State.ESPObjects) do
-            for key, object in pairs(esp) do
-                if typeof(object) == "table" and object.Visible ~= nil then
-                    object.Visible = false
-                end
-            end
-        end
-        return
-    end
-    
     for player, esp in pairs(State.ESPObjects) do
-        -- Check if player is still valid
-        if not player or not player.Parent then
-            RemoveESPObject(player)
-            continue
-        end
-        
-        -- Check if player character exists with required parts
         if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") then
             local hrp = player.Character.HumanoidRootPart
             local humanoid = player.Character.Humanoid
-            
-            -- Check if character is alive (if IgnoreDead is enabled)
-            if Config.IgnoreDeadPlayers and humanoid.Health <= 0 then
-                for key, object in pairs(esp) do
-                    if typeof(object) == "table" and object.Visible ~= nil then
-                        object.Visible = false
-                    end
-                end
-                continue
-            end
-            
-            -- Team check
-            if Config.TeamCheck and player.Team == LocalPlayer.Team then
-                for key, object in pairs(esp) do
-                    if typeof(object) == "table" and object.Visible ~= nil then
-                        object.Visible = false
-                    end
-                end
-                continue
-            end
-            
             local vector, onScreen = Camera:WorldToViewportPoint(hrp.Position)
             local distance = (hrp.Position - Camera.CFrame.Position).Magnitude
 
-            -- Determine ESP color
             local espColor
             if Config.RainbowESP then
                 espColor = GetRainbowColor()
@@ -967,87 +901,65 @@ local function UpdateESP()
                 espColor = Config.EnemyColor
             end
 
-            -- Only show if on screen and within distance
-            if onScreen and distance <= Config.MaxESPDistance then
-                -- BOX
-                if Config.ESPBoxes and esp.Box then
-                    local head = player.Character:FindFirstChild("Head")
-                    if head then
-                        local rootPos = Camera:WorldToViewportPoint(hrp.Position)
-                        local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
-                        local legPos = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
-                        
-                        local height = headPos.Y - legPos.Y
-                        local width = 2350 / rootPos.Z
-                        
-                        if rootPos.Z > 0 then -- Only update if Z is positive
-                            esp.Box.Size = Vector2.new(width, height)
-                            esp.Box.Position = Vector2.new(rootPos.X - width / 2, rootPos.Y - height / 2)
-                            esp.Box.Color = espColor
-                            esp.Box.Visible = true
-                        else
-                            esp.Box.Visible = false
-                        end
-                    else
-                        esp.Box.Visible = false
-                    end
-                elseif esp.Box then
+            if onScreen and distance <= Config.MaxESPDistance and State.ESPEnabled then
+                if Config.ESPBoxes then
+                    local rootPart = player.Character.HumanoidRootPart
+                    local head = player.Character.Head
+                    local rootPos = Camera:WorldToViewportPoint(rootPart.Position)
+                    local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+                    local legPos = Camera:WorldToViewportPoint(rootPart.Position - Vector3.new(0, 3, 0))
+
+                    esp.Box.Size = Vector2.new(2350 / rootPos.Z, headPos.Y - legPos.Y)
+                    esp.Box.Position = Vector2.new(rootPos.X - esp.Box.Size.X / 2, rootPos.Y - esp.Box.Size.Y / 2)
+                    esp.Box.Color = espColor
+                    esp.Box.Visible = true
+                else
                     esp.Box.Visible = false
                 end
 
-                -- NAME
-                if Config.ESPNames and esp.Name then
+                if Config.ESPNames then
                     esp.Name.Text = player.Name
                     esp.Name.Position = Vector2.new(vector.X, vector.Y - 40)
                     esp.Name.Color = espColor
                     esp.Name.Visible = true
-                elseif esp.Name then
+                else
                     esp.Name.Visible = false
                 end
 
-                -- DISTANCE
-                if Config.ESPDistance and esp.Distance then
+                if Config.ESPDistance then
                     esp.Distance.Text = string.format("%.0f studs", distance)
                     esp.Distance.Position = Vector2.new(vector.X, vector.Y + 40)
                     esp.Distance.Color = espColor
                     esp.Distance.Visible = true
-                elseif esp.Distance then
+                else
                     esp.Distance.Visible = false
                 end
 
-                -- HEALTH
-                if Config.ESPHealth and esp.Health then
+                if Config.ESPHealth then
                     esp.Health.Text = string.format("%.0f HP", humanoid.Health)
                     esp.Health.Position = Vector2.new(vector.X, vector.Y + 60)
                     esp.Health.Color = espColor
                     esp.Health.Visible = true
-                elseif esp.Health then
+                else
                     esp.Health.Visible = false
                 end
 
-                -- TRACER
-                if Config.ESPTracer and esp.Tracer then
+                if Config.ESPTracer then
                     esp.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
                     esp.Tracer.To = Vector2.new(vector.X, vector.Y)
                     esp.Tracer.Color = espColor
                     esp.Tracer.Visible = true
-                elseif esp.Tracer then
+                else
                     esp.Tracer.Visible = false
                 end
             else
-                -- Hide all if not on screen or too far
-                for key, object in pairs(esp) do
-                    if typeof(object) == "table" and object.Visible ~= nil then
-                        object.Visible = false
-                    end
+                for _, object in pairs(esp) do
+                    object.Visible = false
                 end
             end
         else
-            -- Hide all if character not found
-            for key, object in pairs(esp) do
-                if typeof(object) == "table" and object.Visible ~= nil then
-                    object.Visible = false
-                end
+            for _, object in pairs(esp) do
+                object.Visible = false
             end
         end
     end
@@ -1182,16 +1094,12 @@ end)
 
 Players.PlayerRemoving:Connect(function(player)
     RemoveESPObject(player)
-end
+end)
 
--- Initialize ESP for all existing players
-print("🔧 Initializing ESP for existing players...")
 for _, player in ipairs(Players:GetPlayers()) do
     if player ~= LocalPlayer then
         CreateESPObject(player)
     end
 end
 
-print("✅ Nurk Hub loaded successfully!")
-print("💡 ESP Toggle is in the VISUALS tab. Make sure to enable it!")
-print("📏 Max ESP Distance: " .. Config.MaxESPDistance .. " studs")
+print("Nurk Hub loaded successfully!")
