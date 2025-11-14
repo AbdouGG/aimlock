@@ -40,7 +40,8 @@ local Config = {
     EnemyColor = Color3.fromRGB(255, 0, 0),
     RainbowFOV = false,
     RainbowESP = false,
-    RandomTargetPart = false -- NEW: Toggle for random part selection
+    RandomTargetPart = false,
+    RandomTargetPartInterval = 0.25 -- NEW: Interval for random part changes
 }
 
 -- State
@@ -53,7 +54,10 @@ local State = {
     VelocityBuffer = {},
     LastTargetPosition = nil,
     LastUpdateTime = tick(),
-    RainbowHue = 0
+    RainbowHue = 0,
+    CurrentRandomPart = nil,    -- NEW: Stores the currently selected random part
+    LastRandomPartUpdate = 0,   -- NEW: Tracks last random part change time
+    LastTargetPlayer = nil      -- NEW: Tracks last target for part regeneration
 }
 
 -- Create Custom UI
@@ -441,6 +445,10 @@ CreateToggle("Ignore Dead", true, function(value) Config.IgnoreDeadPlayers = val
 -- NEW: Random Part Toggle
 CreateToggle("Random Part", false, function(value) 
     Config.RandomTargetPart = value 
+    -- Reset state when toggled
+    State.CurrentRandomPart = nil
+    State.LastTargetPlayer = nil
+    State.LastRandomPartUpdate = 0
 end, AimbotTab.Content)
 
 CreateSlider("Smoothness", 0, 100, Config.AimbotSmoothness * 100, function(value)
@@ -478,7 +486,7 @@ CreateToggle("Rainbow ESP", false, function(value) Config.RainbowESP = value end
 -- Info Tab Content
 CreateSection("INFO", InfoTab.Content)
 local targetLabelFrame, targetLabel = CreateLabel("Target: None", InfoTab.Content)
-local targetPartLabelFrame, targetPartLabel = CreateLabel("Part: Head", InfoTab.Content) -- NEW: Shows current target part
+local targetPartLabelFrame, targetPartLabel = CreateLabel("Part: Head", InfoTab.Content)
 local fpsLabelFrame, fpsLabel = CreateLabel("FPS: 0", InfoTab.Content)
 local pingLabelFrame, pingLabel = CreateLabel("Ping: 0ms", InfoTab.Content)
 
@@ -953,11 +961,19 @@ RunService.RenderStepped:Connect(function()
         if State.TargetPlayer then
             targetLabel.Text = "Target: " .. State.TargetPlayer.Name
             
-            -- Determine which part to aim at (NEW: Continuous random selection)
+            -- Determine which part to aim at
             local targetPartName = Config.AimbotTargetPart
+            
             if Config.RandomTargetPart then
-                -- Continuously pick a new random part every frame
-                targetPartName = GetRandomBodyPart(State.TargetPlayer.Character)
+                -- NEW: Update random part every 0.25 seconds or when target changes
+                local currentTime = tick()
+                if State.TargetPlayer ~= State.LastTargetPlayer or 
+                   (currentTime - State.LastRandomPartUpdate >= Config.RandomTargetPartInterval) then
+                    State.CurrentRandomPart = GetRandomBodyPart(State.TargetPlayer.Character)
+                    State.LastRandomPartUpdate = currentTime
+                    State.LastTargetPlayer = State.TargetPlayer
+                end
+                targetPartName = State.CurrentRandomPart or Config.AimbotTargetPart
             end
             
             -- Update target part display
@@ -1006,10 +1022,16 @@ RunService.RenderStepped:Connect(function()
             targetPartLabel.Text = "Part: " .. (Config.RandomTargetPart and "Random" or Config.AimbotTargetPart)
             State.LastTargetPosition = nil
             State.VelocityBuffer = {}
+            -- Reset random part state when no target
+            State.CurrentRandomPart = nil
+            State.LastTargetPlayer = nil
         end
     else
         targetLabel.Text = "Target: None"
         targetPartLabel.Text = "Part: " .. (Config.RandomTargetPart and "Random" or Config.AimbotTargetPart)
+        -- Reset random part state when aimbot is inactive
+        State.CurrentRandomPart = nil
+        State.LastTargetPlayer = nil
     end
 end)
 
