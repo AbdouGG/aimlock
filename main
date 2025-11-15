@@ -43,12 +43,7 @@ local Config = {
     
     -- NEW PREDICTION SETTINGS
     PingPrediction = true,
-    AdvancedPrediction = false,
-    PredictionMultiplier = 1.0,
-    MinPredictionTime = 0.05,
-    MaxPredictionTime = 0.5,
-    GravityCompensation = false,
-    PredictionSmoothing = 0.5
+    AutoPrediction = true
 }
 
 -- State
@@ -482,27 +477,12 @@ end, VisualsTab.Content)
 CreateToggle("Rainbow ESP", false, function(value) Config.RainbowESP = value end, VisualsTab.Content)
 
 -- Prediction Tab Content (NEW)
-CreateSection("PING PREDICTION", PredictionTab.Content)
-CreateToggle("Enable Prediction", true, function(value) Config.PingPrediction = value end, PredictionTab.Content)
-CreateToggle("Advanced Mode", false, function(value) Config.AdvancedPrediction = value end, PredictionTab.Content)
-CreateToggle("Gravity Comp", false, function(value) Config.GravityCompensation = value end, PredictionTab.Content)
+CreateSection("PREDICTION", PredictionTab.Content)
+CreateToggle("Auto Prediction", true, function(value) Config.AutoPrediction = value end, PredictionTab.Content)
 
-CreateSection("VALUES", PredictionTab.Content)
-CreateSlider("Multiplier", 0, 200, Config.PredictionMultiplier * 100, function(value)
-    Config.PredictionMultiplier = value / 100
-end, PredictionTab.Content)
-
-CreateSlider("Min Time", 0, 100, Config.MinPredictionTime * 100, function(value)
-    Config.MinPredictionTime = value / 100
-end, PredictionTab.Content)
-
-CreateSlider("Max Time", 0, 100, Config.MaxPredictionTime * 100, function(value)
-    Config.MaxPredictionTime = value / 100
-end, PredictionTab.Content)
-
-CreateSlider("Smoothing", 0, 100, Config.PredictionSmoothing * 100, function(value)
-    Config.PredictionSmoothing = value / 100
-end, PredictionTab.Content)
+CreateSection("INFO", PredictionTab.Content)
+local predictionInfoFrame, predictionInfoLabel = CreateLabel("Prediction will automatically adjust based on your ping", PredictionTab.Content)
+local predictionValueFrame, predictionValueLabel = CreateLabel("Current: 0ms", PredictionTab.Content)
 
 -- Info Tab Content
 CreateSection("INFO", InfoTab.Content)
@@ -998,37 +978,47 @@ RunService.RenderStepped:Connect(function()
                 
                 local targetPos = targetPart.Position
                 local targetVel = targetPart.Velocity
+                local cameraPosition = Camera.CFrame.Position
                 
                 UpdateVelocityBuffer(targetVel)
                 local acceleration = CalculateAcceleration(targetPart)
                 local trackingSpeed = CalculateTrackingSpeed(targetVel, acceleration)
                 
-                -- NEW: Advanced prediction calculation
+                -- NEW: Automatic prediction based on ping
                 local predictionTime = 0
                 
-                if Config.PingPrediction then
-                    local basePing = GetPlayerPing()
-                    local pingBasedPrediction = basePing * Config.PredictionMultiplier
+                if Config.AutoPrediction then
+                    local ping = GetPlayerPing()
                     
-                    if Config.AdvancedPrediction then
-                        local velocityPrediction = targetVel.Magnitude / 1000
-                        local accelerationPrediction = acceleration.Magnitude / 500
-                        predictionTime = math.clamp(
-                            (pingBasedPrediction + velocityPrediction + accelerationPrediction) / 3,
-                            Config.MinPredictionTime,
-                            Config.MaxPredictionTime
-                        )
-                    else
-                        predictionTime = math.clamp(pingBasedPrediction, Config.MinPredictionTime, Config.MaxPredictionTime)
-                    end
+                    -- Automatic calculation based on ping
+                    -- Base prediction is ping * 0.8 (accounting for one-way latency)
+                    local basePrediction = ping * 0.8
+                    
+                    -- Adjust for velocity (faster targets need more prediction)
+                    local velocityFactor = math.clamp(targetVel.Magnitude / 100, 0.5, 2)
+                    
+                    -- Adjust for distance (further targets need slightly more prediction)
+                    local distance = (targetPos - cameraPosition).Magnitude
+                    local distanceFactor = math.clamp(distance / 500, 0.8, 1.2)
+                    
+                    -- Final prediction time with automatic adjustments
+                    predictionTime = basePrediction * velocityFactor * distanceFactor
+                    
+                    -- Clamp to reasonable values (0.01 to 0.3 seconds)
+                    predictionTime = math.clamp(predictionTime, 0.01, 0.3)
+                    
+                    -- Update prediction value label
+                    predictionValueLabel.Text = string.format("Current: %.0fms (Ping: %.0fms)", predictionTime * 1000, ping * 1000)
                 end
                 
+                -- Apply gravity compensation for torso/root targeting
                 local gravityCompensation = Vector3.new(0, 0, 0)
-                if Config.GravityCompensation and targetPartName == "HumanoidRootPart" then
+                if targetPartName == "HumanoidRootPart" or targetPartName == "Torso" or targetPartName == "UpperTorso" then
                     local gravity = workspace.Gravity
                     gravityCompensation = Vector3.new(0, -0.5 * gravity * predictionTime * predictionTime, 0)
                 end
                 
+                -- Calculate predicted position
                 local predictedPos = targetPos + 
                                    (targetVel * predictionTime) + 
                                    (acceleration * predictionTime * predictionTime * 0.5) + 
@@ -1041,15 +1031,12 @@ RunService.RenderStepped:Connect(function()
                 )
                 predictedPos = predictedPos + randomOffset
                 
-                local cameraPosition = Camera.CFrame.Position
                 local lookVector = (predictedPos - cameraPosition).Unit
                 local targetCFrame = CFrame.new(cameraPosition, cameraPosition + lookVector)
                 
-                local distance = (targetPos - cameraPosition).Magnitude
                 local dynamicSmoothness = math.min(1, Config.AimbotSmoothness / trackingSpeed)
-                local finalSmoothness = dynamicSmoothness * (1 - Config.PredictionSmoothing * 0.5)
                 
-                Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, finalSmoothness)
+                Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, dynamicSmoothness)
             end
         else
             targetLabel.Text = "Target: None"
