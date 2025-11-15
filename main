@@ -1,4 +1,3 @@
-
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
@@ -50,6 +49,10 @@ local Config = {
     
     -- QUICK ACCESS SETTINGS
     ShowQuickAccess = false,
+    
+    -- HEALTH THRESHOLD SETTINGS
+    UseHealthThreshold = false,
+    HealthThreshold = 20,
     
     -- NEW PREDICTION SETTINGS
     PingPrediction = true,
@@ -413,7 +416,6 @@ end
 local function GetRandomBodyPart(character)
     local bodyParts = {}
     
-    -- If using custom parts, only use those
     if Config.UseCustomParts and #Config.CustomTargetParts > 0 then
         for _, partName in ipairs(Config.CustomTargetParts) do
             if character:FindFirstChild(partName) then
@@ -421,7 +423,6 @@ local function GetRandomBodyPart(character)
             end
         end
     else
-        -- Default: use all body parts
         if character:FindFirstChild("Head") then table.insert(bodyParts, "Head") end
         if character:FindFirstChild("HumanoidRootPart") then table.insert(bodyParts, "HumanoidRootPart") end
         if character:FindFirstChild("Torso") then table.insert(bodyParts, "Torso") end
@@ -773,17 +774,28 @@ CreateSection("INFO", PredictionTab.Content)
 local predictionInfoFrame, predictionInfoLabel = CreateLabel("Prediction will automatically adjust based on your ping", PredictionTab.Content)
 local predictionValueFrame, predictionValueLabel = CreateLabel("Current: 0ms", PredictionTab.Content)
 
--- Settings Tab Content (FIXED)
+-- Settings Tab Content
 CreateSection("QUICK ACCESS", SettingsTab.Content)
 CreateToggle("Show Quick Aimbot", false, function(value) 
     Config.ShowQuickAccess = value
     if QuickAimbotButton then
         QuickAimbotButton.Visible = value
-        print("Quick access button set to:", value)
     end
 end, SettingsTab.Content)
 
 local quickAccessInfoFrame, quickAccessInfoLabel = CreateLabel("Shows a button outside UI to quickly toggle aimbot", SettingsTab.Content)
+
+CreateSection("HEALTH THRESHOLD", SettingsTab.Content)
+
+CreateToggle("Enable Health Stop", false, function(value) 
+    Config.UseHealthThreshold = value 
+end, SettingsTab.Content)
+
+CreateSlider("Stop at Health", 0, 100, Config.HealthThreshold, function(value)
+    Config.HealthThreshold = value
+end, SettingsTab.Content)
+
+local healthInfoFrame, healthInfoLabel = CreateLabel("Aimbot will stop targeting players when their health reaches this value", SettingsTab.Content)
 
 CreateSection("BLACKLIST", SettingsTab.Content)
 
@@ -993,7 +1005,7 @@ ToggleButton.MouseLeave:Connect(function()
     hoverTween:Play()
 end)
 
--- Quick Access Aimbot Button (FIXED INITIALIZATION)
+-- Quick Access Aimbot Button
 QuickAimbotButton = Instance.new("TextButton")
 QuickAimbotButton.Name = "QuickAimbotButton"
 QuickAimbotButton.Parent = ScreenGui
@@ -1026,16 +1038,6 @@ QuickGradient.Color = ColorSequence.new{
 QuickGradient.Rotation = 45
 QuickGradient.Parent = QuickAimbotButton
 
-local QuickIcon = Instance.new("ImageLabel")
-QuickIcon.Name = "Icon"
-QuickIcon.Parent = QuickAimbotButton
-QuickIcon.BackgroundTransparency = 1
-QuickIcon.Position = UDim2.new(0.5, -20, 0.5, -20)
-QuickIcon.Size = UDim2.new(0, 40, 0, 40)
-QuickIcon.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
-QuickIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
-QuickIcon.ZIndex = 1001
-
 local QuickLabel = Instance.new("TextLabel")
 QuickLabel.Name = "Label"
 QuickLabel.Parent = QuickAimbotButton
@@ -1062,7 +1064,6 @@ QuickStatusLabel.TextSize = 10
 QuickStatusLabel.TextStrokeTransparency = 0.5
 QuickStatusLabel.ZIndex = 1001
 
--- Quick button dragging
 local quickDragging = false
 local quickDragInput
 local quickDragStart
@@ -1152,6 +1153,10 @@ QuickAimbotButton.MouseEnter:Connect(function()
     end
 end)
 
+QuickAimbotButton.MouseLeave:Connect(function()
+    local hoverTween = TweenService:Create(QuickBorder, TweenInfo.new(0.2), {Thickness = 3})
+    hoverTween:Play()
+end)
 
 local function CreateFOVCircle()
     State.FOVCircle = Drawing.new("Circle")
@@ -1248,6 +1253,10 @@ local function GetNearestPlayerInFOV()
             
             local humanoid = player.Character:FindFirstChild("Humanoid")
             if humanoid and (not Config.IgnoreDeadPlayers or humanoid.Health > 0) then
+                if Config.UseHealthThreshold and humanoid.Health <= Config.HealthThreshold then
+                    continue
+                end
+                
                 if not Config.TeamCheck or player.Team ~= LocalPlayer.Team then
                     local partToCheck = "Head"
                     local targetPart = player.Character:FindFirstChild(partToCheck)
@@ -1453,6 +1462,17 @@ RunService.RenderStepped:Connect(function()
             
             local targetPart = State.TargetPlayer.Character:FindFirstChild(targetPartName)
             if targetPart then
+                local currentHumanoid = State.TargetPlayer.Character:FindFirstChild("Humanoid")
+                if Config.UseHealthThreshold and currentHumanoid and currentHumanoid.Health <= Config.HealthThreshold then
+                    targetLabel.Text = "Target: None (low health)"
+                    State.TargetPlayer = nil
+                    State.LastTargetPosition = nil
+                    State.VelocityBuffer = {}
+                    State.CurrentRandomPart = nil
+                    State.LastTargetPlayer = nil
+                    return
+                end
+                
                 if Config.WallCheck and not IsVisible(targetPart) then
                     targetLabel.Text = "Target: None (blocked)"
                     State.TargetPlayer = nil
@@ -1550,4 +1570,4 @@ end
 
 print("Nurk Hub V1.6.6 loaded successfully!")
 print("Quick Access Button initialized:", QuickAimbotButton ~= nil)
-
+print("Health Threshold feature added!")
