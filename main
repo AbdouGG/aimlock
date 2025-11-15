@@ -29,8 +29,6 @@ local Config = {
     ESPHealth = false,
     ESPTracer = false,
     MaxESPDistance = 1000,
-    PingCompensation = false,
-    MaxPingPrediction = 0.15,
     IgnoreDeadPlayers = true,
     MinTrackingSpeed = 0.2,
     MaxTrackingSpeed = 2.0,
@@ -41,7 +39,16 @@ local Config = {
     RainbowFOV = false,
     RainbowESP = false,
     RandomTargetPart = false,
-    RandomTargetPartInterval = 0.25 -- Default 0.25 seconds
+    RandomTargetPartInterval = 0.25,
+    
+    -- NEW PREDICTION SETTINGS
+    PingPrediction = true,
+    AdvancedPrediction = false,
+    PredictionMultiplier = 1.0,
+    MinPredictionTime = 0.05,
+    MaxPredictionTime = 0.5,
+    GravityCompensation = false,
+    PredictionSmoothing = 0.5
 }
 
 -- State
@@ -76,18 +83,15 @@ MainFrame.Size = UDim2.new(0, 300, 0, 400)
 MainFrame.Active = true
 MainFrame.Draggable = true
 
--- Add corner radius
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 10)
 UICorner.Parent = MainFrame
 
--- Add border
 local Border = Instance.new("UIStroke")
 Border.Color = Color3.fromRGB(255, 0, 0)
 Border.Thickness = 2
 Border.Parent = MainFrame
 
--- Title Bar
 local TitleBar = Instance.new("Frame")
 TitleBar.Name = "TitleBar"
 TitleBar.Parent = MainFrame
@@ -99,7 +103,6 @@ local TitleCorner = Instance.new("UICorner")
 TitleCorner.CornerRadius = UDim.new(0, 10)
 TitleCorner.Parent = TitleBar
 
--- Title Text
 local Title = Instance.new("TextLabel")
 Title.Name = "Title"
 Title.Parent = TitleBar
@@ -112,7 +115,6 @@ Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 18
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- Close Button
 local CloseButton = Instance.new("TextButton")
 CloseButton.Name = "CloseButton"
 CloseButton.Parent = TitleBar
@@ -129,7 +131,6 @@ local CloseCorner = Instance.new("UICorner")
 CloseCorner.CornerRadius = UDim.new(0, 5)
 CloseCorner.Parent = CloseButton
 
--- Tabs Container
 local TabsContainer = Instance.new("Frame")
 TabsContainer.Name = "TabsContainer"
 TabsContainer.Parent = MainFrame
@@ -144,7 +145,6 @@ TabsLayout.FillDirection = Enum.FillDirection.Horizontal
 TabsLayout.SortOrder = Enum.SortOrder.LayoutOrder
 TabsLayout.Padding = UDim.new(0, 0)
 
--- Content Frame
 local ContentFrame = Instance.new("ScrollingFrame")
 ContentFrame.Name = "ContentFrame"
 ContentFrame.Parent = MainFrame
@@ -160,7 +160,6 @@ ContentLayout.Parent = ContentFrame
 ContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
 ContentLayout.Padding = UDim.new(0, 8)
 
--- Function to create section header
 local function CreateSection(name, parent)
     local section = Instance.new("TextLabel")
     section.Name = name .. "Section"
@@ -175,14 +174,11 @@ local function CreateSection(name, parent)
     return section
 end
 
--- Tab System
 local Tabs = {}
 local CurrentTab = nil
 
 local function CreateTab(name)
     local tab = {}
-    
-    -- Tab Button
     local tabButton = Instance.new("TextButton")
     tabButton.Name = name .. "Tab"
     tabButton.Parent = TabsContainer
@@ -194,7 +190,6 @@ local function CreateTab(name)
     tabButton.TextColor3 = Color3.fromRGB(150, 150, 150)
     tabButton.TextSize = 12
     
-    -- Tab Content Container
     local tabContent = Instance.new("Frame")
     tabContent.Name = name .. "Content"
     tabContent.Parent = ContentFrame
@@ -211,14 +206,12 @@ local function CreateTab(name)
     tab.Content = tabContent
     tab.Layout = tabLayout
     
-    -- Update canvas size when content changes
     tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         if tabContent.Visible then
             ContentFrame.CanvasSize = UDim2.new(0, 0, 0, tabLayout.AbsoluteContentSize.Y + 10)
         end
     end)
     
-    -- Tab click handler
     tabButton.MouseButton1Click:Connect(function()
         for _, t in pairs(Tabs) do
             t.Content.Visible = false
@@ -231,7 +224,6 @@ local function CreateTab(name)
         tabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
         CurrentTab = tab
         
-        -- Update canvas size
         ContentFrame.CanvasSize = UDim2.new(0, 0, 0, tabLayout.AbsoluteContentSize.Y + 10)
     end)
     
@@ -239,7 +231,6 @@ local function CreateTab(name)
     return tab
 end
 
--- Function to create toggle button
 local function CreateToggle(name, default, callback, parent)
     local toggleFrame = Instance.new("Frame")
     toggleFrame.Name = name .. "Toggle"
@@ -290,7 +281,6 @@ local function CreateToggle(name, default, callback, parent)
     return toggleFrame
 end
 
--- Function to create slider (FIXED FOR MOBILE)
 local function CreateSlider(name, min, max, default, callback, parent)
     local sliderFrame = Instance.new("Frame")
     sliderFrame.Name = name .. "Slider"
@@ -337,7 +327,6 @@ local function CreateSlider(name, min, max, default, callback, parent)
     
     local isDragging = false
     
-    -- Update function
     local function updateSlider(position)
         local relativePos = math.clamp(
             (position.X - sliderBar.AbsolutePosition.X) / sliderBar.AbsoluteSize.X, 
@@ -347,20 +336,16 @@ local function CreateSlider(name, min, max, default, callback, parent)
         local value = min + (max - min) * relativePos
         
         sliderFill.Size = UDim2.new(relativePos, 0, 1, 0)
-        label.Text = name .. ": " .. math.floor(value)
+        label.Text = name .. ": " .. math.floor(value * 100) / 100
         callback(value)
     end
     
-    -- Input began (both mouse and touch)
     sliderBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or 
            input.UserInputType == Enum.UserInputType.Touch then
             isDragging = true
-            
-            -- Update immediately on click/touch
             updateSlider(input.Position)
             
-            -- Listen for when the input ends
             local connection
             connection = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
@@ -371,7 +356,6 @@ local function CreateSlider(name, min, max, default, callback, parent)
         end
     end)
     
-    -- Input changed (both mouse movement and touch movement)
     UserInputService.InputChanged:Connect(function(input)
         if isDragging then
             if input.UserInputType == Enum.UserInputType.MouseMovement or 
@@ -384,7 +368,6 @@ local function CreateSlider(name, min, max, default, callback, parent)
     return sliderFrame
 end
 
--- Function to create info label
 local function CreateLabel(text, parent)
     local labelFrame = Instance.new("Frame")
     labelFrame.Parent = parent
@@ -411,16 +394,13 @@ local function CreateLabel(text, parent)
     return labelFrame, label
 end
 
--- Rainbow color function
 local function GetRainbowColor()
     State.RainbowHue = (State.RainbowHue + 0.01) % 1
     return Color3.fromHSV(State.RainbowHue, 1, 1)
 end
 
--- NEW: Get random body part from character
 local function GetRandomBodyPart(character)
     local bodyParts = {}
-    -- R6 parts
     if character:FindFirstChild("Head") then table.insert(bodyParts, "Head") end
     if character:FindFirstChild("HumanoidRootPart") then table.insert(bodyParts, "HumanoidRootPart") end
     if character:FindFirstChild("Torso") then table.insert(bodyParts, "Torso") end
@@ -428,8 +408,6 @@ local function GetRandomBodyPart(character)
     if character:FindFirstChild("Right Arm") then table.insert(bodyParts, "Right Arm") end
     if character:FindFirstChild("Left Leg") then table.insert(bodyParts, "Left Leg") end
     if character:FindFirstChild("Right Leg") then table.insert(bodyParts, "Right Leg") end
-    
-    -- R15 parts
     if character:FindFirstChild("UpperTorso") then table.insert(bodyParts, "UpperTorso") end
     if character:FindFirstChild("LowerTorso") then table.insert(bodyParts, "LowerTorso") end
     if character:FindFirstChild("LeftUpperArm") then table.insert(bodyParts, "LeftUpperArm") end
@@ -448,26 +426,25 @@ local function GetRandomBodyPart(character)
     if #bodyParts > 0 then
         return bodyParts[math.random(1, #bodyParts)]
     end
-    return "Head" -- fallback
+    return "Head"
 end
 
 -- Build UI
 local AimbotTab = CreateTab("AIMBOT")
 local VisualsTab = CreateTab("VISUALS")
+local PredictionTab = CreateTab("PREDICT")
 local InfoTab = CreateTab("INFO")
 
 -- Aimbot Tab Content
-CreateSection("AIMBOT", AimbotTab.Content)
+CreateSection("MAIN", AimbotTab.Content)
 CreateToggle("Aimbot", false, function(value) State.AimbotActive = value end, AimbotTab.Content)
 CreateToggle("Team Check", false, function(value) Config.TeamCheck = value end, AimbotTab.Content)
 CreateToggle("Wall Check", true, function(value) Config.WallCheck = value end, AimbotTab.Content)
 CreateToggle("Ignore Dead", true, function(value) Config.IgnoreDeadPlayers = value end, AimbotTab.Content)
 
--- NEW RANDOM SECTION
 CreateSection("RANDOM", AimbotTab.Content)
 CreateToggle("Random Part", false, function(value) 
     Config.RandomTargetPart = value 
-    -- Reset state when toggled
     State.CurrentRandomPart = nil
     State.LastTargetPlayer = nil
     State.LastRandomPartUpdate = 0
@@ -476,6 +453,7 @@ CreateSlider("Interval (s)", 10, 200, Config.RandomTargetPartInterval * 100, fun
     Config.RandomTargetPartInterval = value / 100
 end, AimbotTab.Content)
 
+CreateSection("SETTINGS", AimbotTab.Content)
 CreateSlider("Smoothness", 0, 100, Config.AimbotSmoothness * 100, function(value)
     Config.AimbotSmoothness = value / 100
 end, AimbotTab.Content)
@@ -485,19 +463,8 @@ CreateSlider("FOV", 10, 500, Config.AimbotFOV, function(value)
     if State.FOVCircle then State.FOVCircle.Radius = value end
 end, AimbotTab.Content)
 
-CreateSection("PREDICTION", AimbotTab.Content)
-CreateToggle("Ping Compensation", false, function(value) Config.PingCompensation = value end, AimbotTab.Content)
-
-CreateSection("RAINBOW", AimbotTab.Content)
-CreateToggle("Rainbow FOV", false, function(value) 
-    Config.RainbowFOV = value
-    if not value and State.FOVCircle then
-        State.FOVCircle.Color = Config.FOVColor
-    end
-end, AimbotTab.Content)
-
 -- Visuals Tab Content
-CreateSection("VISUALS", VisualsTab.Content)
+CreateSection("ESP", VisualsTab.Content)
 CreateToggle("ESP", false, function(value) State.ESPEnabled = value end, VisualsTab.Content)
 CreateToggle("Boxes", true, function(value) Config.ESPBoxes = value end, VisualsTab.Content)
 CreateToggle("Names", true, function(value) Config.ESPNames = value end, VisualsTab.Content)
@@ -506,7 +473,36 @@ CreateToggle("Health", false, function(value) Config.ESPHealth = value end, Visu
 CreateToggle("Tracers", false, function(value) Config.ESPTracer = value end, VisualsTab.Content)
 
 CreateSection("RAINBOW", VisualsTab.Content)
+CreateToggle("Rainbow FOV", false, function(value) 
+    Config.RainbowFOV = value
+    if not value and State.FOVCircle then
+        State.FOVCircle.Color = Config.FOVColor
+    end
+end, VisualsTab.Content)
 CreateToggle("Rainbow ESP", false, function(value) Config.RainbowESP = value end, VisualsTab.Content)
+
+-- Prediction Tab Content (NEW)
+CreateSection("PING PREDICTION", PredictionTab.Content)
+CreateToggle("Enable Prediction", true, function(value) Config.PingPrediction = value end, PredictionTab.Content)
+CreateToggle("Advanced Mode", false, function(value) Config.AdvancedPrediction = value end, PredictionTab.Content)
+CreateToggle("Gravity Comp", false, function(value) Config.GravityCompensation = value end, PredictionTab.Content)
+
+CreateSection("VALUES", PredictionTab.Content)
+CreateSlider("Multiplier", 0, 200, Config.PredictionMultiplier * 100, function(value)
+    Config.PredictionMultiplier = value / 100
+end, PredictionTab.Content)
+
+CreateSlider("Min Time", 0, 100, Config.MinPredictionTime * 100, function(value)
+    Config.MinPredictionTime = value / 100
+end, PredictionTab.Content)
+
+CreateSlider("Max Time", 0, 100, Config.MaxPredictionTime * 100, function(value)
+    Config.MaxPredictionTime = value / 100
+end, PredictionTab.Content)
+
+CreateSlider("Smoothing", 0, 100, Config.PredictionSmoothing * 100, function(value)
+    Config.PredictionSmoothing = value / 100
+end, PredictionTab.Content)
 
 -- Info Tab Content
 CreateSection("INFO", InfoTab.Content)
@@ -515,19 +511,17 @@ local targetPartLabelFrame, targetPartLabel = CreateLabel("Part: Head", InfoTab.
 local fpsLabelFrame, fpsLabel = CreateLabel("FPS: 0", InfoTab.Content)
 local pingLabelFrame, pingLabel = CreateLabel("Ping: 0ms", InfoTab.Content)
 
--- Activate first tab by default
+-- Activate first tab
 Tabs["AIMBOT"].Button.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 Tabs["AIMBOT"].Button.TextColor3 = Color3.fromRGB(255, 255, 255)
 Tabs["AIMBOT"].Content.Visible = true
 CurrentTab = Tabs["AIMBOT"]
 ContentFrame.CanvasSize = UDim2.new(0, 0, 0, Tabs["AIMBOT"].Layout.AbsoluteContentSize.Y + 10)
 
--- Close button functionality
 CloseButton.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
--- Parent to CoreGui
 if gethui then
     ScreenGui.Parent = gethui()
 elseif syn and syn.protect_gui then
@@ -537,7 +531,6 @@ else
     ScreenGui.Parent = game.CoreGui
 end
 
--- Create Toggle Button (Outside of main frame)
 local ToggleButton = Instance.new("TextButton")
 ToggleButton.Name = "ToggleButton"
 ToggleButton.Parent = ScreenGui
@@ -561,7 +554,6 @@ ToggleBorder.Color = Color3.fromRGB(255, 255, 255)
 ToggleBorder.Thickness = 3
 ToggleBorder.Parent = ToggleButton
 
--- Add gradient effect
 local ToggleGradient = Instance.new("UIGradient")
 ToggleGradient.Color = ColorSequence.new{
     ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
@@ -570,7 +562,6 @@ ToggleGradient.Color = ColorSequence.new{
 ToggleGradient.Rotation = 45
 ToggleGradient.Parent = ToggleButton
 
--- Add text label inside button
 local ToggleLabel = Instance.new("TextLabel")
 ToggleLabel.Name = "Label"
 ToggleLabel.Parent = ToggleButton
@@ -585,7 +576,6 @@ ToggleLabel.TextStrokeTransparency = 0.5
 ToggleLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 ToggleLabel.ZIndex = 1001
 
--- Add status indicator
 local StatusIndicator = Instance.new("Frame")
 StatusIndicator.Name = "StatusIndicator"
 StatusIndicator.Parent = ToggleButton
@@ -611,7 +601,6 @@ StatusLabel.TextSize = 10
 StatusLabel.TextStrokeTransparency = 0.5
 StatusLabel.ZIndex = 1001
 
--- Make button draggable
 local dragging = false
 local dragInput
 local dragStart
@@ -648,10 +637,9 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Toggle functionality
 local isVisible = true
 local clickStartTime = 0
-local clickThreshold = 0.15 -- Time in seconds to distinguish between click and drag
+local clickThreshold = 0.15
 
 ToggleButton.MouseButton1Down:Connect(function()
     clickStartTime = tick()
@@ -659,14 +647,11 @@ end)
 
 ToggleButton.MouseButton1Up:Connect(function()
     local clickDuration = tick() - clickStartTime
-    
-    -- Only toggle if it was a quick click (not a drag)
     if clickDuration < clickThreshold then
         isVisible = not isVisible
         MainFrame.Visible = isVisible
         StatusLabel.Text = isVisible and "OPEN" or "CLOSED"
         
-        -- Animate button with smooth transitions
         local colorGoal = {BackgroundColor3 = isVisible and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(80, 80, 80)}
         local sizeGoal = {Size = UDim2.new(0, isVisible and 70 or 60, 0, isVisible and 70 or 60)}
         local indicatorColor = {BackgroundColor3 = isVisible and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)}
@@ -679,7 +664,6 @@ ToggleButton.MouseButton1Up:Connect(function()
         sizeTween:Play()
         indicatorTween:Play()
         
-        -- Update gradient
         if isVisible then
             ToggleGradient.Color = ColorSequence.new{
                 ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
@@ -694,7 +678,6 @@ ToggleButton.MouseButton1Up:Connect(function()
     end
 end)
 
--- Hover effect
 ToggleButton.MouseEnter:Connect(function()
     if not dragging then
         local hoverTween = TweenService:Create(ToggleBorder, TweenInfo.new(0.2), {Thickness = 4})
@@ -707,7 +690,6 @@ ToggleButton.MouseLeave:Connect(function()
     hoverTween:Play()
 end)
 
--- Create FOV Circle
 local function CreateFOVCircle()
     State.FOVCircle = Drawing.new("Circle")
     State.FOVCircle.Visible = false
@@ -719,20 +701,17 @@ local function CreateFOVCircle()
     State.FOVCircle.NumSides = 50
 end
 
--- Update FOV Circle
 local function UpdateFOVCircle()
     if State.FOVCircle then
         State.FOVCircle.Visible = State.AimbotActive
         State.FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
         
-        -- Apply rainbow color if enabled
         if Config.RainbowFOV then
             State.FOVCircle.Color = GetRainbowColor()
         end
     end
 end
 
--- FIXED: Proper visibility check
 local function IsVisible(targetPart)
     local origin = Camera.CFrame.Position
     local targetPos = targetPart.Position
@@ -743,19 +722,15 @@ local function IsVisible(targetPart)
     raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, targetPart.Parent}
     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
 
-    -- Cast ray towards the target part
     local raycastResult = workspace:Raycast(origin, direction * distance, raycastParams)
     
-    -- If nothing was hit, we have clear line of sight
     if not raycastResult then
         return true
     end
     
-    -- If something was hit before reaching the target, it's not visible
     return false
 end
 
--- Utility Functions
 local function UpdateVelocityBuffer(currentVelocity)
     table.insert(State.VelocityBuffer, currentVelocity)
     if #State.VelocityBuffer > Config.VelocityHistory then
@@ -807,8 +782,6 @@ local function GetNearestPlayerInFOV()
             local humanoid = player.Character:FindFirstChild("Humanoid")
             if humanoid and (not Config.IgnoreDeadPlayers or humanoid.Health > 0) then
                 if not Config.TeamCheck or player.Team ~= LocalPlayer.Team then
-                    
-                    -- Use Head for target acquisition (always visible check on head)
                     local partToCheck = "Head"
                     local targetPart = player.Character:FindFirstChild(partToCheck)
                     
@@ -835,7 +808,6 @@ local function GetNearestPlayerInFOV()
     return nearestPlayer
 end
 
--- ESP Functions
 local function CreateESPObject(player)
     local esp = {}
     
@@ -984,7 +956,6 @@ local function UpdatePing()
     pingLabel.Text = "Ping: " .. math.floor(currentPing) .. "ms"
 end
 
--- Main Logic
 CreateFOVCircle()
 
 RunService.RenderStepped:Connect(function()
@@ -998,7 +969,6 @@ RunService.RenderStepped:Connect(function()
         if State.TargetPlayer then
             targetLabel.Text = "Target: " .. State.TargetPlayer.Name
             
-            -- Determine which part to aim at
             local targetPartName = Config.AimbotTargetPart
             
             if Config.RandomTargetPart then
@@ -1012,24 +982,20 @@ RunService.RenderStepped:Connect(function()
                 targetPartName = State.CurrentRandomPart or Config.AimbotTargetPart
             end
             
-            -- Update target part display
             targetPartLabel.Text = "Part: " .. targetPartName
             
             local targetPart = State.TargetPlayer.Character:FindFirstChild(targetPartName)
             if targetPart then
-                -- CRITICAL FIX: Check if the specific part is visible when WallCheck is enabled
                 if Config.WallCheck and not IsVisible(targetPart) then
-                    -- Part is behind a wall, don't aim at it
                     targetLabel.Text = "Target: None (blocked)"
                     State.TargetPlayer = nil
                     State.LastTargetPosition = nil
                     State.VelocityBuffer = {}
                     State.CurrentRandomPart = nil
                     State.LastTargetPlayer = nil
-                    return -- Skip aiming this frame
+                    return
                 end
                 
-                -- Part is visible, proceed with aiming
                 local targetPos = targetPart.Position
                 local targetVel = targetPart.Velocity
                 
@@ -1037,10 +1003,28 @@ RunService.RenderStepped:Connect(function()
                 local acceleration = CalculateAcceleration(targetPart)
                 local trackingSpeed = CalculateTrackingSpeed(targetVel, acceleration)
                 
-                local predictionTime = Config.PingCompensation and math.min(GetPlayerPing(), Config.MaxPingPrediction) or 0
+                -- NEW: Advanced prediction calculation
+                local predictionTime = 0
+                
+                if Config.PingPrediction then
+                    local basePing = GetPlayerPing()
+                    local pingBasedPrediction = basePing * Config.PredictionMultiplier
+                    
+                    if Config.AdvancedPrediction then
+                        local velocityPrediction = targetVel.Magnitude / 1000
+                        local accelerationPrediction = acceleration.Magnitude / 500
+                        predictionTime = math.clamp(
+                            (pingBasedPrediction + velocityPrediction + accelerationPrediction) / 3,
+                            Config.MinPredictionTime,
+                            Config.MaxPredictionTime
+                        )
+                    else
+                        predictionTime = math.clamp(pingBasedPrediction, Config.MinPredictionTime, Config.MaxPredictionTime)
+                    end
+                end
                 
                 local gravityCompensation = Vector3.new(0, 0, 0)
-                if targetPartName == "HumanoidRootPart" then
+                if Config.GravityCompensation and targetPartName == "HumanoidRootPart" then
                     local gravity = workspace.Gravity
                     gravityCompensation = Vector3.new(0, -0.5 * gravity * predictionTime * predictionTime, 0)
                 end
@@ -1063,8 +1047,9 @@ RunService.RenderStepped:Connect(function()
                 
                 local distance = (targetPos - cameraPosition).Magnitude
                 local dynamicSmoothness = math.min(1, Config.AimbotSmoothness / trackingSpeed)
+                local finalSmoothness = dynamicSmoothness * (1 - Config.PredictionSmoothing * 0.5)
                 
-                Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, dynamicSmoothness)
+                Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, finalSmoothness)
             end
         else
             targetLabel.Text = "Target: None"
