@@ -1,3 +1,4 @@
+
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
@@ -47,6 +48,9 @@ local Config = {
     BlacklistedPlayers = {},
     UseBlacklist = false,
     
+    -- QUICK ACCESS SETTINGS
+    ShowQuickAccess = false,
+    
     -- NEW PREDICTION SETTINGS
     PingPrediction = true,
     AutoPrediction = true
@@ -67,6 +71,12 @@ local State = {
     LastRandomPartUpdate = 0,
     LastTargetPlayer = nil
 }
+
+-- Forward declarations for Quick Access Button
+local QuickAimbotButton
+local QuickStatusLabel
+local QuickGradient
+local QuickBorder
 
 -- Create Custom UI
 local ScreenGui = Instance.new("ScreenGui")
@@ -650,7 +660,7 @@ local function CreatePlayerList(name, parent, onAddCallback, onRemoveCallback)
     end
     
     addButton.MouseButton1Click:Connect(function()
-        local playerName = inputBox.Text:gsub("^%s*(.-)%s*$", "%1") -- Trim whitespace
+        local playerName = inputBox.Text:gsub("^%s*(.-)%s*$", "%1")
         if playerName ~= "" then
             local isDuplicate = false
             for _, child in ipairs(scrollFrame:GetChildren()) do
@@ -687,10 +697,6 @@ local VisualsTab = CreateTab("VISUALS")
 local PredictionTab = CreateTab("PREDICT")
 local SettingsTab = CreateTab("SETTINGS")
 local InfoTab = CreateTab("INFO")
-
-print("Tabs created successfully")
-print("Settings tab exists:", SettingsTab ~= nil)
-print("Settings content exists:", SettingsTab.Content ~= nil)
 
 -- Aimbot Tab Content
 CreateSection("MAIN", AimbotTab.Content)
@@ -759,7 +765,7 @@ CreateToggle("Rainbow FOV", false, function(value)
 end, VisualsTab.Content)
 CreateToggle("Rainbow ESP", false, function(value) Config.RainbowESP = value end, VisualsTab.Content)
 
--- Prediction Tab Content (NEW)
+-- Prediction Tab Content
 CreateSection("PREDICTION", PredictionTab.Content)
 CreateToggle("Auto Prediction", true, function(value) Config.AutoPrediction = value end, PredictionTab.Content)
 
@@ -767,37 +773,39 @@ CreateSection("INFO", PredictionTab.Content)
 local predictionInfoFrame, predictionInfoLabel = CreateLabel("Prediction will automatically adjust based on your ping", PredictionTab.Content)
 local predictionValueFrame, predictionValueLabel = CreateLabel("Current: 0ms", PredictionTab.Content)
 
--- Settings Tab Content (NEW)
-print("Creating Settings tab content...")
+-- Settings Tab Content (FIXED)
+CreateSection("QUICK ACCESS", SettingsTab.Content)
+CreateToggle("Show Quick Aimbot", false, function(value) 
+    Config.ShowQuickAccess = value
+    if QuickAimbotButton then
+        QuickAimbotButton.Visible = value
+        print("Quick access button set to:", value)
+    end
+end, SettingsTab.Content)
+
+local quickAccessInfoFrame, quickAccessInfoLabel = CreateLabel("Shows a button outside UI to quickly toggle aimbot", SettingsTab.Content)
+
 CreateSection("BLACKLIST", SettingsTab.Content)
-print("Section created")
 
 CreateToggle("Enable Blacklist", false, function(value) 
     Config.UseBlacklist = value 
-    print("Blacklist enabled:", value)
 end, SettingsTab.Content)
-print("Toggle created")
 
 CreatePlayerList("Blacklisted Players", SettingsTab.Content, 
     function(playerName)
         if not table.find(Config.BlacklistedPlayers, playerName) then
             table.insert(Config.BlacklistedPlayers, playerName)
-            print("Added to blacklist: " .. playerName)
         end
     end,
     function(playerName)
         local index = table.find(Config.BlacklistedPlayers, playerName)
         if index then
             table.remove(Config.BlacklistedPlayers, index)
-            print("Removed from blacklist: " .. playerName)
         end
     end
 )
-print("Player list created")
 
 local blacklistInfoFrame, blacklistInfoLabel = CreateLabel("Blacklisted players will be ignored by aimbot", SettingsTab.Content)
-print("Info label created")
-print("Settings tab setup complete!")
 
 -- Info Tab Content
 CreateSection("INFO", InfoTab.Content)
@@ -985,6 +993,166 @@ ToggleButton.MouseLeave:Connect(function()
     hoverTween:Play()
 end)
 
+-- Quick Access Aimbot Button (FIXED INITIALIZATION)
+QuickAimbotButton = Instance.new("TextButton")
+QuickAimbotButton.Name = "QuickAimbotButton"
+QuickAimbotButton.Parent = ScreenGui
+QuickAimbotButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+QuickAimbotButton.BorderSizePixel = 0
+QuickAimbotButton.Position = UDim2.new(0, 10, 0.5, 50)
+QuickAimbotButton.Size = UDim2.new(0, 70, 0, 70)
+QuickAimbotButton.Font = Enum.Font.GothamBold
+QuickAimbotButton.Text = ""
+QuickAimbotButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+QuickAimbotButton.TextSize = 14
+QuickAimbotButton.ZIndex = 1000
+QuickAimbotButton.Active = true
+QuickAimbotButton.Visible = Config.ShowQuickAccess
+
+local QuickCorner = Instance.new("UICorner")
+QuickCorner.CornerRadius = UDim.new(0, 15)
+QuickCorner.Parent = QuickAimbotButton
+
+QuickBorder = Instance.new("UIStroke")
+QuickBorder.Color = Color3.fromRGB(255, 255, 255)
+QuickBorder.Thickness = 3
+QuickBorder.Parent = QuickAimbotButton
+
+QuickGradient = Instance.new("UIGradient")
+QuickGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 50, 50)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 30))
+}
+QuickGradient.Rotation = 45
+QuickGradient.Parent = QuickAimbotButton
+
+local QuickIcon = Instance.new("ImageLabel")
+QuickIcon.Name = "Icon"
+QuickIcon.Parent = QuickAimbotButton
+QuickIcon.BackgroundTransparency = 1
+QuickIcon.Position = UDim2.new(0.5, -20, 0.5, -20)
+QuickIcon.Size = UDim2.new(0, 40, 0, 40)
+QuickIcon.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+QuickIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+QuickIcon.ZIndex = 1001
+
+local QuickLabel = Instance.new("TextLabel")
+QuickLabel.Name = "Label"
+QuickLabel.Parent = QuickAimbotButton
+QuickLabel.BackgroundTransparency = 1
+QuickLabel.Size = UDim2.new(1, 0, 0.35, 0)
+QuickLabel.Position = UDim2.new(0, 0, 0.3, 0)
+QuickLabel.Font = Enum.Font.GothamBold
+QuickLabel.Text = "🎯"
+QuickLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+QuickLabel.TextSize = 30
+QuickLabel.TextStrokeTransparency = 0.5
+QuickLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+QuickLabel.ZIndex = 1001
+
+QuickStatusLabel = Instance.new("TextLabel")
+QuickStatusLabel.Parent = QuickAimbotButton
+QuickStatusLabel.BackgroundTransparency = 1
+QuickStatusLabel.Size = UDim2.new(1, 0, 0.25, 0)
+QuickStatusLabel.Position = UDim2.new(0, 0, 0.72, 0)
+QuickStatusLabel.Font = Enum.Font.Gotham
+QuickStatusLabel.Text = "OFF"
+QuickStatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+QuickStatusLabel.TextSize = 10
+QuickStatusLabel.TextStrokeTransparency = 0.5
+QuickStatusLabel.ZIndex = 1001
+
+-- Quick button dragging
+local quickDragging = false
+local quickDragInput
+local quickDragStart
+local quickStartPos
+
+local function updateQuick(input)
+    local delta = input.Position - quickDragStart
+    QuickAimbotButton.Position = UDim2.new(quickStartPos.X.Scale, quickStartPos.X.Offset + delta.X, quickStartPos.Y.Scale, quickStartPos.Y.Offset + delta.Y)
+end
+
+QuickAimbotButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        quickDragging = true
+        quickDragStart = input.Position
+        quickStartPos = QuickAimbotButton.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                quickDragging = false
+            end
+        end)
+    end
+end)
+
+QuickAimbotButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        quickDragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == quickDragInput and quickDragging then
+        updateQuick(input)
+    end
+end)
+
+local quickClickStartTime = 0
+local quickClickThreshold = 0.15
+
+QuickAimbotButton.MouseButton1Down:Connect(function()
+    quickClickStartTime = tick()
+end)
+
+QuickAimbotButton.MouseButton1Up:Connect(function()
+    local clickDuration = tick() - quickClickStartTime
+    if clickDuration < quickClickThreshold then
+        State.AimbotActive = not State.AimbotActive
+        
+        QuickStatusLabel.Text = State.AimbotActive and "ON" or "OFF"
+        QuickStatusLabel.TextColor3 = State.AimbotActive and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+        
+        local colorGoal = {BackgroundColor3 = State.AimbotActive and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(50, 50, 50)}
+        local borderGoal = {Color = State.AimbotActive and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 255, 255)}
+        
+        local colorTween = TweenService:Create(QuickAimbotButton, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), colorGoal)
+        local borderTween = TweenService:Create(QuickBorder, TweenInfo.new(0.3), borderGoal)
+        
+        colorTween:Play()
+        borderTween:Play()
+        
+        if State.AimbotActive then
+            QuickGradient.Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 200, 0)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 150, 0))
+            }
+        else
+            QuickGradient.Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 50, 50)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 30))
+            }
+        end
+        
+        local pulseTween = TweenService:Create(QuickAimbotButton, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 75, 0, 75)})
+        local pulseTweenBack = TweenService:Create(QuickAimbotButton, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 70, 0, 70)})
+        
+        pulseTween:Play()
+        pulseTween.Completed:Connect(function()
+            pulseTweenBack:Play()
+        end)
+    end
+end)
+
+QuickAimbotButton.MouseEnter:Connect(function()
+    if not quickDragging then
+        local hoverTween = TweenService:Create(QuickBorder, TweenInfo.new(0.2), {Thickness = 4})
+        hoverTween:Play()
+    end
+end)
+
+
 local function CreateFOVCircle()
     State.FOVCircle = Drawing.new("Circle")
     State.FOVCircle.Visible = false
@@ -1074,7 +1242,6 @@ local function GetNearestPlayerInFOV()
 
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") then
-            -- Check if player is blacklisted
             if Config.UseBlacklist and table.find(Config.BlacklistedPlayers, player.Name) then
                 continue
             end
@@ -1304,41 +1471,28 @@ RunService.RenderStepped:Connect(function()
                 local acceleration = CalculateAcceleration(targetPart)
                 local trackingSpeed = CalculateTrackingSpeed(targetVel, acceleration)
                 
-                -- NEW: Automatic prediction based on ping
                 local predictionTime = 0
                 
                 if Config.AutoPrediction then
                     local ping = GetPlayerPing()
                     
-                    -- Automatic calculation based on ping
-                    -- Base prediction is ping * 0.8 (accounting for one-way latency)
                     local basePrediction = ping * 0.8
-                    
-                    -- Adjust for velocity (faster targets need more prediction)
                     local velocityFactor = math.clamp(targetVel.Magnitude / 100, 0.5, 2)
-                    
-                    -- Adjust for distance (further targets need slightly more prediction)
                     local distance = (targetPos - cameraPosition).Magnitude
                     local distanceFactor = math.clamp(distance / 500, 0.8, 1.2)
                     
-                    -- Final prediction time with automatic adjustments
                     predictionTime = basePrediction * velocityFactor * distanceFactor
-                    
-                    -- Clamp to reasonable values (0.01 to 0.3 seconds)
                     predictionTime = math.clamp(predictionTime, 0.01, 0.3)
                     
-                    -- Update prediction value label
                     predictionValueLabel.Text = string.format("Current: %.0fms (Ping: %.0fms)", predictionTime * 1000, ping * 1000)
                 end
                 
-                -- Apply gravity compensation for torso/root targeting
                 local gravityCompensation = Vector3.new(0, 0, 0)
                 if targetPartName == "HumanoidRootPart" or targetPartName == "Torso" or targetPartName == "UpperTorso" then
                     local gravity = workspace.Gravity
                     gravityCompensation = Vector3.new(0, -0.5 * gravity * predictionTime * predictionTime, 0)
                 end
                 
-                -- Calculate predicted position
                 local predictedPos = targetPos + 
                                    (targetVel * predictionTime) + 
                                    (acceleration * predictionTime * predictionTime * 0.5) + 
@@ -1394,4 +1548,6 @@ for _, player in ipairs(Players:GetPlayers()) do
     end
 end
 
-print("Nurk Hub loaded successfully!")
+print("Nurk Hub V1.6.6 loaded successfully!")
+print("Quick Access Button initialized:", QuickAimbotButton ~= nil)
+
