@@ -40,6 +40,8 @@ local Config = {
     RainbowESP = false,
     RandomTargetPart = false,
     RandomTargetPartInterval = 0.25,
+    CustomTargetParts = {},
+    UseCustomParts = false,
     
     -- NEW PREDICTION SETTINGS
     PingPrediction = true,
@@ -396,32 +398,121 @@ end
 
 local function GetRandomBodyPart(character)
     local bodyParts = {}
-    if character:FindFirstChild("Head") then table.insert(bodyParts, "Head") end
-    if character:FindFirstChild("HumanoidRootPart") then table.insert(bodyParts, "HumanoidRootPart") end
-    if character:FindFirstChild("Torso") then table.insert(bodyParts, "Torso") end
-    if character:FindFirstChild("Left Arm") then table.insert(bodyParts, "Left Arm") end
-    if character:FindFirstChild("Right Arm") then table.insert(bodyParts, "Right Arm") end
-    if character:FindFirstChild("Left Leg") then table.insert(bodyParts, "Left Leg") end
-    if character:FindFirstChild("Right Leg") then table.insert(bodyParts, "Right Leg") end
-    if character:FindFirstChild("UpperTorso") then table.insert(bodyParts, "UpperTorso") end
-    if character:FindFirstChild("LowerTorso") then table.insert(bodyParts, "LowerTorso") end
-    if character:FindFirstChild("LeftUpperArm") then table.insert(bodyParts, "LeftUpperArm") end
-    if character:FindFirstChild("RightUpperArm") then table.insert(bodyParts, "RightUpperArm") end
-    if character:FindFirstChild("LeftLowerArm") then table.insert(bodyParts, "LeftLowerArm") end
-    if character:FindFirstChild("RightLowerArm") then table.insert(bodyParts, "RightLowerArm") end
-    if character:FindFirstChild("LeftHand") then table.insert(bodyParts, "LeftHand") end
-    if character:FindFirstChild("RightHand") then table.insert(bodyParts, "RightHand") end
-    if character:FindFirstChild("LeftUpperLeg") then table.insert(bodyParts, "LeftUpperLeg") end
-    if character:FindFirstChild("RightUpperLeg") then table.insert(bodyParts, "RightUpperLeg") end
-    if character:FindFirstChild("LeftLowerLeg") then table.insert(bodyParts, "LeftLowerLeg") end
-    if character:FindFirstChild("RightLowerLeg") then table.insert(bodyParts, "RightLowerLeg") end
-    if character:FindFirstChild("LeftFoot") then table.insert(bodyParts, "LeftFoot") end
-    if character:FindFirstChild("RightFoot") then table.insert(bodyParts, "RightFoot") end
+    
+    -- If using custom parts, only use those
+    if Config.UseCustomParts and #Config.CustomTargetParts > 0 then
+        for _, partName in ipairs(Config.CustomTargetParts) do
+            if character:FindFirstChild(partName) then
+                table.insert(bodyParts, partName)
+            end
+        end
+    else
+        -- Default: use all body parts
+        if character:FindFirstChild("Head") then table.insert(bodyParts, "Head") end
+        if character:FindFirstChild("HumanoidRootPart") then table.insert(bodyParts, "HumanoidRootPart") end
+        if character:FindFirstChild("Torso") then table.insert(bodyParts, "Torso") end
+        if character:FindFirstChild("Left Arm") then table.insert(bodyParts, "Left Arm") end
+        if character:FindFirstChild("Right Arm") then table.insert(bodyParts, "Right Arm") end
+        if character:FindFirstChild("Left Leg") then table.insert(bodyParts, "Left Leg") end
+        if character:FindFirstChild("Right Leg") then table.insert(bodyParts, "Right Leg") end
+        if character:FindFirstChild("UpperTorso") then table.insert(bodyParts, "UpperTorso") end
+        if character:FindFirstChild("LowerTorso") then table.insert(bodyParts, "LowerTorso") end
+        if character:FindFirstChild("LeftUpperArm") then table.insert(bodyParts, "LeftUpperArm") end
+        if character:FindFirstChild("RightUpperArm") then table.insert(bodyParts, "RightUpperArm") end
+        if character:FindFirstChild("LeftLowerArm") then table.insert(bodyParts, "LeftLowerArm") end
+        if character:FindFirstChild("RightLowerArm") then table.insert(bodyParts, "RightLowerArm") end
+        if character:FindFirstChild("LeftHand") then table.insert(bodyParts, "LeftHand") end
+        if character:FindFirstChild("RightHand") then table.insert(bodyParts, "RightHand") end
+        if character:FindFirstChild("LeftUpperLeg") then table.insert(bodyParts, "LeftUpperLeg") end
+        if character:FindFirstChild("RightUpperLeg") then table.insert(bodyParts, "RightUpperLeg") end
+        if character:FindFirstChild("LeftLowerLeg") then table.insert(bodyParts, "LeftLowerLeg") end
+        if character:FindFirstChild("RightLowerLeg") then table.insert(bodyParts, "RightLowerLeg") end
+        if character:FindFirstChild("LeftFoot") then table.insert(bodyParts, "LeftFoot") end
+        if character:FindFirstChild("RightFoot") then table.insert(bodyParts, "RightFoot") end
+    end
     
     if #bodyParts > 0 then
         return bodyParts[math.random(1, #bodyParts)]
     end
     return "Head"
+end
+
+local function CreateMultiToggle(name, options, parent)
+    local multiToggleFrame = Instance.new("Frame")
+    multiToggleFrame.Name = name .. "MultiToggle"
+    multiToggleFrame.Parent = parent
+    multiToggleFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    multiToggleFrame.BorderSizePixel = 0
+    multiToggleFrame.Size = UDim2.new(1, 0, 0, 30 + (#options * 30))
+    
+    local multiToggleCorner = Instance.new("UICorner")
+    multiToggleCorner.CornerRadius = UDim.new(0, 5)
+    multiToggleCorner.Parent = multiToggleFrame
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Parent = multiToggleFrame
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Position = UDim2.new(0, 10, 0, 5)
+    titleLabel.Size = UDim2.new(1, -20, 0, 20)
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.Text = name
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextSize = 12
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    for i, option in ipairs(options) do
+        local optionFrame = Instance.new("Frame")
+        optionFrame.Parent = multiToggleFrame
+        optionFrame.BackgroundTransparency = 1
+        optionFrame.Position = UDim2.new(0, 10, 0, 25 + ((i - 1) * 30))
+        optionFrame.Size = UDim2.new(1, -20, 0, 25)
+        
+        local optionLabel = Instance.new("TextLabel")
+        optionLabel.Parent = optionFrame
+        optionLabel.BackgroundTransparency = 1
+        optionLabel.Size = UDim2.new(0.7, 0, 1, 0)
+        optionLabel.Font = Enum.Font.Gotham
+        optionLabel.Text = option
+        optionLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        optionLabel.TextSize = 11
+        optionLabel.TextXAlignment = Enum.TextXAlignment.Left
+        
+        local checkbox = Instance.new("TextButton")
+        checkbox.Parent = optionFrame
+        checkbox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        checkbox.BorderSizePixel = 0
+        checkbox.Position = UDim2.new(1, -45, 0.5, -10)
+        checkbox.Size = UDim2.new(0, 40, 0, 20)
+        checkbox.Font = Enum.Font.GothamBold
+        checkbox.Text = "OFF"
+        checkbox.TextColor3 = Color3.fromRGB(255, 255, 255)
+        checkbox.TextSize = 9
+        
+        local checkboxCorner = Instance.new("UICorner")
+        checkboxCorner.CornerRadius = UDim.new(0, 4)
+        checkboxCorner.Parent = checkbox
+        
+        local isEnabled = false
+        
+        checkbox.MouseButton1Click:Connect(function()
+            isEnabled = not isEnabled
+            checkbox.Text = isEnabled and "ON" or "OFF"
+            checkbox.BackgroundColor3 = isEnabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(50, 50, 50)
+            
+            if isEnabled then
+                if not table.find(Config.CustomTargetParts, option) then
+                    table.insert(Config.CustomTargetParts, option)
+                end
+            else
+                local index = table.find(Config.CustomTargetParts, option)
+                if index then
+                    table.remove(Config.CustomTargetParts, index)
+                end
+            end
+        end)
+    end
+    
+    return multiToggleFrame
 end
 
 -- Build UI
@@ -444,6 +535,27 @@ CreateToggle("Random Part", false, function(value)
     State.LastTargetPlayer = nil
     State.LastRandomPartUpdate = 0
 end, AimbotTab.Content)
+
+CreateToggle("Use Custom Parts", false, function(value)
+    Config.UseCustomParts = value
+    State.CurrentRandomPart = nil
+    State.LastTargetPlayer = nil
+end, AimbotTab.Content)
+
+CreateMultiToggle("Select Parts", {
+    "Head",
+    "HumanoidRootPart", 
+    "Torso",
+    "UpperTorso",
+    "LowerTorso",
+    "Left Arm",
+    "Right Arm",
+    "LeftUpperArm",
+    "RightUpperArm",
+    "LeftLowerArm",
+    "RightLowerArm"
+}, AimbotTab.Content)
+
 CreateSlider("Interval (s)", 10, 200, Config.RandomTargetPartInterval * 100, function(value)
     Config.RandomTargetPartInterval = value / 100
 end, AimbotTab.Content)
