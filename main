@@ -382,6 +382,65 @@ local function CreateSlider(name, min, max, default, callback, parent)
     return sliderFrame
 end
 
+local function CreateInput(name, default, callback, parent)
+    local inputFrame = Instance.new("Frame")
+    inputFrame.Name = name .. "Input"
+    inputFrame.Parent = parent
+    inputFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    inputFrame.BorderSizePixel = 0
+    inputFrame.Size = UDim2.new(1, 0, 0, 50)
+    
+    local inputCorner = Instance.new("UICorner")
+    inputCorner.CornerRadius = UDim.new(0, 5)
+    inputCorner.Parent = inputFrame
+    
+    local label = Instance.new("TextLabel")
+    label.Parent = inputFrame
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0, 10, 0, 5)
+    label.Size = UDim2.new(1, -20, 0, 15)
+    label.Font = Enum.Font.Gotham
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local inputBox = Instance.new("TextBox")
+    inputBox.Parent = inputFrame
+    inputBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    inputBox.BorderSizePixel = 0
+    inputBox.Position = UDim2.new(0, 10, 0, 25)
+    inputBox.Size = UDim2.new(1, -20, 0, 20)
+    inputBox.Font = Enum.Font.Gotham
+    inputBox.PlaceholderText = "Enter value (0-100)..."
+    inputBox.Text = tostring(default)
+    inputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    inputBox.TextSize = 11
+    inputBox.ClearTextOnFocus = false
+    
+    local inputBoxCorner = Instance.new("UICorner")
+    inputBoxCorner.CornerRadius = UDim.new(0, 5)
+    inputBoxCorner.Parent = inputBox
+    
+    local inputPadding = Instance.new("UIPadding")
+    inputPadding.PaddingLeft = UDim.new(0, 8)
+    inputPadding.PaddingRight = UDim.new(0, 8)
+    inputPadding.Parent = inputBox
+    
+    inputBox.FocusLost:Connect(function(enterPressed)
+        local value = tonumber(inputBox.Text)
+        if value then
+            value = math.clamp(value, 0, 100)
+            inputBox.Text = tostring(value)
+            callback(value)
+        else
+            inputBox.Text = tostring(default)
+        end
+    end)
+    
+    return inputFrame
+end
+
 local function CreateLabel(text, parent)
     local labelFrame = Instance.new("Frame")
     labelFrame.Parent = parent
@@ -791,7 +850,7 @@ CreateToggle("Enable Health Stop", false, function(value)
     Config.UseHealthThreshold = value 
 end, SettingsTab.Content)
 
-CreateSlider("Stop at Health", 0, 100, Config.HealthThreshold, function(value)
+CreateInput("Stop at Health", Config.HealthThreshold, function(value)
     Config.HealthThreshold = value
 end, SettingsTab.Content)
 
@@ -1153,10 +1212,6 @@ QuickAimbotButton.MouseEnter:Connect(function()
     end
 end)
 
-QuickAimbotButton.MouseLeave:Connect(function()
-    local hoverTween = TweenService:Create(QuickBorder, TweenInfo.new(0.2), {Thickness = 3})
-    hoverTween:Play()
-end)
 
 local function CreateFOVCircle()
     State.FOVCircle = Drawing.new("Circle")
@@ -1570,4 +1625,4 @@ end
 
 print("Nurk Hub V1.6.6 loaded successfully!")
 print("Quick Access Button initialized:", QuickAimbotButton ~= nil)
-print("Health Threshold feature added!")
+print("Health Threshold feature updated with input box!")
