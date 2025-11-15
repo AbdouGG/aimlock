@@ -43,6 +43,10 @@ local Config = {
     CustomTargetParts = {},
     UseCustomParts = false,
     
+    -- BLACKLIST SETTINGS
+    BlacklistedPlayers = {},
+    UseBlacklist = false,
+    
     -- NEW PREDICTION SETTINGS
     PingPrediction = true,
     AutoPrediction = true
@@ -181,11 +185,11 @@ local function CreateTab(name)
     tabButton.Parent = TabsContainer
     tabButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     tabButton.BorderSizePixel = 0
-    tabButton.Size = UDim2.new(1 / 4, 0, 1, 0)
+    tabButton.Size = UDim2.new(1 / 5, 0, 1, 0)
     tabButton.Font = Enum.Font.GothamBold
     tabButton.Text = name
     tabButton.TextColor3 = Color3.fromRGB(150, 150, 150)
-    tabButton.TextSize = 12
+    tabButton.TextSize = 11
     
     local tabContent = Instance.new("Frame")
     tabContent.Name = name .. "Content"
@@ -515,11 +519,178 @@ local function CreateMultiToggle(name, options, parent)
     return multiToggleFrame
 end
 
+local function CreatePlayerList(name, parent, onAddCallback, onRemoveCallback)
+    local listFrame = Instance.new("Frame")
+    listFrame.Name = name .. "List"
+    listFrame.Parent = parent
+    listFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    listFrame.BorderSizePixel = 0
+    listFrame.Size = UDim2.new(1, 0, 0, 200)
+    
+    local listCorner = Instance.new("UICorner")
+    listCorner.CornerRadius = UDim.new(0, 5)
+    listCorner.Parent = listFrame
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Parent = listFrame
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Position = UDim2.new(0, 10, 0, 5)
+    titleLabel.Size = UDim2.new(1, -20, 0, 20)
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.Text = name
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextSize = 12
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local scrollFrame = Instance.new("ScrollingFrame")
+    scrollFrame.Parent = listFrame
+    scrollFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    scrollFrame.BorderSizePixel = 0
+    scrollFrame.Position = UDim2.new(0, 5, 0, 30)
+    scrollFrame.Size = UDim2.new(1, -10, 0, 120)
+    scrollFrame.ScrollBarThickness = 4
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    
+    local scrollCorner = Instance.new("UICorner")
+    scrollCorner.CornerRadius = UDim.new(0, 5)
+    scrollCorner.Parent = scrollFrame
+    
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.Parent = scrollFrame
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    listLayout.Padding = UDim.new(0, 3)
+    
+    listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 5)
+    end)
+    
+    local inputBox = Instance.new("TextBox")
+    inputBox.Parent = listFrame
+    inputBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    inputBox.BorderSizePixel = 0
+    inputBox.Position = UDim2.new(0, 5, 0, 155)
+    inputBox.Size = UDim2.new(1, -90, 0, 35)
+    inputBox.Font = Enum.Font.Gotham
+    inputBox.PlaceholderText = "Enter player name..."
+    inputBox.Text = ""
+    inputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    inputBox.TextSize = 11
+    inputBox.TextXAlignment = Enum.TextXAlignment.Left
+    inputBox.ClearTextOnFocus = false
+    
+    local inputCorner = Instance.new("UICorner")
+    inputCorner.CornerRadius = UDim.new(0, 5)
+    inputCorner.Parent = inputBox
+    
+    local inputPadding = Instance.new("UIPadding")
+    inputPadding.PaddingLeft = UDim.new(0, 8)
+    inputPadding.Parent = inputBox
+    
+    local addButton = Instance.new("TextButton")
+    addButton.Parent = listFrame
+    addButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+    addButton.BorderSizePixel = 0
+    addButton.Position = UDim2.new(1, -80, 0, 155)
+    addButton.Size = UDim2.new(0, 75, 0, 35)
+    addButton.Font = Enum.Font.GothamBold
+    addButton.Text = "ADD"
+    addButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    addButton.TextSize = 11
+    
+    local addCorner = Instance.new("UICorner")
+    addCorner.CornerRadius = UDim.new(0, 5)
+    addCorner.Parent = addButton
+    
+    local function createPlayerEntry(playerName)
+        local entryFrame = Instance.new("Frame")
+        entryFrame.Parent = scrollFrame
+        entryFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        entryFrame.BorderSizePixel = 0
+        entryFrame.Size = UDim2.new(1, -5, 0, 25)
+        
+        local entryCorner = Instance.new("UICorner")
+        entryCorner.CornerRadius = UDim.new(0, 4)
+        entryCorner.Parent = entryFrame
+        
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Parent = entryFrame
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Position = UDim2.new(0, 8, 0, 0)
+        nameLabel.Size = UDim2.new(1, -40, 1, 0)
+        nameLabel.Font = Enum.Font.Gotham
+        nameLabel.Text = playerName
+        nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        nameLabel.TextSize = 10
+        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        
+        local removeButton = Instance.new("TextButton")
+        removeButton.Parent = entryFrame
+        removeButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+        removeButton.BorderSizePixel = 0
+        removeButton.Position = UDim2.new(1, -28, 0.5, -10)
+        removeButton.Size = UDim2.new(0, 25, 0, 20)
+        removeButton.Font = Enum.Font.GothamBold
+        removeButton.Text = "X"
+        removeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        removeButton.TextSize = 10
+        
+        local removeCorner = Instance.new("UICorner")
+        removeCorner.CornerRadius = UDim.new(0, 3)
+        removeCorner.Parent = removeButton
+        
+        removeButton.MouseButton1Click:Connect(function()
+            entryFrame:Destroy()
+            if onRemoveCallback then
+                onRemoveCallback(playerName)
+            end
+        end)
+        
+        return entryFrame
+    end
+    
+    addButton.MouseButton1Click:Connect(function()
+        local playerName = inputBox.Text:gsub("^%s*(.-)%s*$", "%1") -- Trim whitespace
+        if playerName ~= "" then
+            local isDuplicate = false
+            for _, child in ipairs(scrollFrame:GetChildren()) do
+                if child:IsA("Frame") and child:FindFirstChild("TextLabel") then
+                    if child.TextLabel.Text == playerName then
+                        isDuplicate = true
+                        break
+                    end
+                end
+            end
+            
+            if not isDuplicate then
+                createPlayerEntry(playerName)
+                if onAddCallback then
+                    onAddCallback(playerName)
+                end
+                inputBox.Text = ""
+            end
+        end
+    end)
+    
+    inputBox.FocusLost:Connect(function(enterPressed)
+        if enterPressed then
+            addButton.MouseButton1Click:Fire()
+        end
+    end)
+    
+    return listFrame
+end
+
 -- Build UI
 local AimbotTab = CreateTab("AIMBOT")
 local VisualsTab = CreateTab("VISUALS")
 local PredictionTab = CreateTab("PREDICT")
+local SettingsTab = CreateTab("SETTINGS")
 local InfoTab = CreateTab("INFO")
+
+print("Tabs created successfully")
+print("Settings tab exists:", SettingsTab ~= nil)
+print("Settings content exists:", SettingsTab.Content ~= nil)
 
 -- Aimbot Tab Content
 CreateSection("MAIN", AimbotTab.Content)
@@ -595,6 +766,38 @@ CreateToggle("Auto Prediction", true, function(value) Config.AutoPrediction = va
 CreateSection("INFO", PredictionTab.Content)
 local predictionInfoFrame, predictionInfoLabel = CreateLabel("Prediction will automatically adjust based on your ping", PredictionTab.Content)
 local predictionValueFrame, predictionValueLabel = CreateLabel("Current: 0ms", PredictionTab.Content)
+
+-- Settings Tab Content (NEW)
+print("Creating Settings tab content...")
+CreateSection("BLACKLIST", SettingsTab.Content)
+print("Section created")
+
+CreateToggle("Enable Blacklist", false, function(value) 
+    Config.UseBlacklist = value 
+    print("Blacklist enabled:", value)
+end, SettingsTab.Content)
+print("Toggle created")
+
+CreatePlayerList("Blacklisted Players", SettingsTab.Content, 
+    function(playerName)
+        if not table.find(Config.BlacklistedPlayers, playerName) then
+            table.insert(Config.BlacklistedPlayers, playerName)
+            print("Added to blacklist: " .. playerName)
+        end
+    end,
+    function(playerName)
+        local index = table.find(Config.BlacklistedPlayers, playerName)
+        if index then
+            table.remove(Config.BlacklistedPlayers, index)
+            print("Removed from blacklist: " .. playerName)
+        end
+    end
+)
+print("Player list created")
+
+local blacklistInfoFrame, blacklistInfoLabel = CreateLabel("Blacklisted players will be ignored by aimbot", SettingsTab.Content)
+print("Info label created")
+print("Settings tab setup complete!")
 
 -- Info Tab Content
 CreateSection("INFO", InfoTab.Content)
@@ -871,6 +1074,11 @@ local function GetNearestPlayerInFOV()
 
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") then
+            -- Check if player is blacklisted
+            if Config.UseBlacklist and table.find(Config.BlacklistedPlayers, player.Name) then
+                continue
+            end
+            
             local humanoid = player.Character:FindFirstChild("Humanoid")
             if humanoid and (not Config.IgnoreDeadPlayers or humanoid.Health > 0) then
                 if not Config.TeamCheck or player.Team ~= LocalPlayer.Team then
