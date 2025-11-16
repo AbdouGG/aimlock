@@ -48,7 +48,16 @@ local Config = {
     UseHealthThreshold = false,
     HealthThreshold = 20,
     PingPrediction = true,
-    AutoPrediction = true
+    AutoPrediction = true,
+    
+    -- CROSSHAIR SETTINGS
+    ShowCrosshair = false,
+    CrosshairSize = 10,
+    CrosshairThickness = 2,
+    CrosshairGap = 5,
+    CrosshairColor = Color3.fromRGB(255, 255, 255),
+    CrosshairTransparency = 1,
+    RainbowCrosshair = false
 }
 
 -- State
@@ -64,7 +73,8 @@ local State = {
     RainbowHue = 0,
     CurrentRandomPart = nil,
     LastRandomPartUpdate = 0,
-    LastTargetPlayer = nil
+    LastTargetPlayer = nil,
+    CrosshairLines = {}
 }
 
 -- Forward declarations
@@ -869,6 +879,38 @@ CreateToggle("Rainbow FOV", false, function(value)
 end, VisualsTab.Content)
 CreateToggle("Rainbow ESP", false, function(value) Config.RainbowESP = value end, VisualsTab.Content)
 
+CreateSection("CROSSHAIR", VisualsTab.Content)
+CreateToggle("Show Crosshair", false, function(value) 
+    Config.ShowCrosshair = value
+    for _, line in pairs(State.CrosshairLines) do
+        line.Visible = value
+    end
+end, VisualsTab.Content)
+
+CreateSlider("Size", 5, 30, Config.CrosshairSize, function(value)
+    Config.CrosshairSize = value
+end, VisualsTab.Content)
+
+CreateSlider("Thickness", 1, 5, Config.CrosshairThickness, function(value)
+    Config.CrosshairThickness = value
+    for _, line in pairs(State.CrosshairLines) do
+        line.Thickness = value
+    end
+end, VisualsTab.Content)
+
+CreateSlider("Gap", 0, 20, Config.CrosshairGap, function(value)
+    Config.CrosshairGap = value
+end, VisualsTab.Content)
+
+CreateToggle("Rainbow Crosshair", false, function(value) 
+    Config.RainbowCrosshair = value
+    if not value then
+        for _, line in pairs(State.CrosshairLines) do
+            line.Color = Config.CrosshairColor
+        end
+    end
+end, VisualsTab.Content)
+
 -- Prediction Tab Content
 CreateSection("PREDICTION", PredictionTab.Content)
 CreateToggle("Auto Prediction", true, function(value) Config.AutoPrediction = value end, PredictionTab.Content)
@@ -1200,6 +1242,73 @@ local function CreateFOVCircle()
     State.FOVCircle.NumSides = 50
 end
 
+local function CreateCrosshair()
+    -- Top line
+    State.CrosshairLines.Top = Drawing.new("Line")
+    State.CrosshairLines.Top.Thickness = Config.CrosshairThickness
+    State.CrosshairLines.Top.Color = Config.CrosshairColor
+    State.CrosshairLines.Top.Transparency = Config.CrosshairTransparency
+    State.CrosshairLines.Top.Visible = Config.ShowCrosshair
+    
+    -- Bottom line
+    State.CrosshairLines.Bottom = Drawing.new("Line")
+    State.CrosshairLines.Bottom.Thickness = Config.CrosshairThickness
+    State.CrosshairLines.Bottom.Color = Config.CrosshairColor
+    State.CrosshairLines.Bottom.Transparency = Config.CrosshairTransparency
+    State.CrosshairLines.Bottom.Visible = Config.ShowCrosshair
+    
+    -- Left line
+    State.CrosshairLines.Left = Drawing.new("Line")
+    State.CrosshairLines.Left.Thickness = Config.CrosshairThickness
+    State.CrosshairLines.Left.Color = Config.CrosshairColor
+    State.CrosshairLines.Left.Transparency = Config.CrosshairTransparency
+    State.CrosshairLines.Left.Visible = Config.ShowCrosshair
+    
+    -- Right line
+    State.CrosshairLines.Right = Drawing.new("Line")
+    State.CrosshairLines.Right.Thickness = Config.CrosshairThickness
+    State.CrosshairLines.Right.Color = Config.CrosshairColor
+    State.CrosshairLines.Right.Transparency = Config.CrosshairTransparency
+    State.CrosshairLines.Right.Visible = Config.ShowCrosshair
+end
+
+local function UpdateCrosshair()
+    if not Config.ShowCrosshair then return end
+    
+    local centerX = Camera.ViewportSize.X / 2
+    local centerY = Camera.ViewportSize.Y / 2
+    
+    local size = Config.CrosshairSize
+    local gap = Config.CrosshairGap
+    
+    -- Update rainbow color if enabled
+    local crosshairColor = Config.RainbowCrosshair and GetRainbowColor() or Config.CrosshairColor
+    
+    -- Top line
+    State.CrosshairLines.Top.From = Vector2.new(centerX, centerY - gap)
+    State.CrosshairLines.Top.To = Vector2.new(centerX, centerY - gap - size)
+    State.CrosshairLines.Top.Color = crosshairColor
+    State.CrosshairLines.Top.Visible = Config.ShowCrosshair
+    
+    -- Bottom line
+    State.CrosshairLines.Bottom.From = Vector2.new(centerX, centerY + gap)
+    State.CrosshairLines.Bottom.To = Vector2.new(centerX, centerY + gap + size)
+    State.CrosshairLines.Bottom.Color = crosshairColor
+    State.CrosshairLines.Bottom.Visible = Config.ShowCrosshair
+    
+    -- Left line
+    State.CrosshairLines.Left.From = Vector2.new(centerX - gap, centerY)
+    State.CrosshairLines.Left.To = Vector2.new(centerX - gap - size, centerY)
+    State.CrosshairLines.Left.Color = crosshairColor
+    State.CrosshairLines.Left.Visible = Config.ShowCrosshair
+    
+    -- Right line
+    State.CrosshairLines.Right.From = Vector2.new(centerX + gap, centerY)
+    State.CrosshairLines.Right.To = Vector2.new(centerX + gap + size, centerY)
+    State.CrosshairLines.Right.Color = crosshairColor
+    State.CrosshairLines.Right.Visible = Config.ShowCrosshair
+end
+
 local function UpdateFOVCircle()
     if State.FOVCircle then
         State.FOVCircle.Visible = State.AimbotActive
@@ -1464,9 +1573,11 @@ local function UpdatePing()
 end
 
 CreateFOVCircle()
+CreateCrosshair()
 
 RunService.RenderStepped:Connect(function()
     UpdateFOVCircle()
+    UpdateCrosshair()
     UpdateESP()
     UpdatePing()
     UpdateFPS()
