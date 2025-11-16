@@ -507,7 +507,7 @@ local function CreateLabel(text, parent)
 end
 
 local function GetRainbowColor()
-    State.RainbowHue = (State.RainbowHue + 0.01) % 1
+    State.RainbowHue = (State.RainbowHue + 0.001) % 1
     return Color3.fromHSV(State.RainbowHue, 1, 1)
 end
 
