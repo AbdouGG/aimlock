@@ -11,12 +11,12 @@ local frameCount = 0
 
 -- Configuration
 local Config = {
-    WindowName = "Nurk Hub | V1.6.6",
-    DiscordInvite = "https://discord.com/invite/8ub8UQNzbT",
+    WindowName = "Nurk Hub | V1.6.6 Mobile",
+    DiscordInvite = "https://discord.com/invite/8ub8UQNzbT  ",
     AimbotKey = Enum.KeyCode.Q,
     ESPColor = Color3.fromRGB(255, 0, 0),
-    AimbotSmoothness = 0.2, -- Lowered default for better control
-    AimbotFOV = 150,        -- Increased default FOV to make testing easier
+    AimbotSmoothness = 0.5,
+    AimbotFOV = 100,
     AimbotTargetPart = "Head",
     FOVColor = Color3.fromRGB(255, 255, 255),
     FOVThickness = 1,
@@ -44,7 +44,7 @@ local Config = {
     UseCustomParts = false,
     BlacklistedPlayers = {},
     UseBlacklist = false,
-    ShowQuickAccess = true, -- Enabled by default for mobile users
+    ShowQuickAccess = false,
     UseHealthThreshold = false,
     HealthThreshold = 20,
     PingPrediction = true,
@@ -88,30 +88,32 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "NurkHubUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.IgnoreGuiInset = true 
 
--- SCALING UTILITY
-local function MakeDraggable(guiObject, dragFrame)
+-- SCALING LOGIC START
+local function AddUIScale(object)
+    local scale = Instance.new("UIScale")
+    scale.Parent = object
+    return scale
+end
+
+-- Helper function to make frames draggable (Mobile Friendly)
+local function MakeDraggable(frame)
     local dragging = false
-    local dragInput, dragStart, startPos
+    local dragInput
+    local dragStart
+    local startPos
 
     local function update(input)
         local delta = input.Position - dragStart
-        local scale = guiObject:FindFirstChild("UIScale") and guiObject.UIScale.Scale or 1
-        guiObject.Position = UDim2.new(
-            startPos.X.Scale, 
-            startPos.X.Offset + (delta.X / scale), 
-            startPos.Y.Scale, 
-            startPos.Y.Offset + (delta.Y / scale)
-        )
+        frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 
-    dragFrame.InputBegan:Connect(function(input)
+    frame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
-            startPos = guiObject.Position
-
+            startPos = frame.Position
+            
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -120,7 +122,7 @@ local function MakeDraggable(guiObject, dragFrame)
         end
     end)
 
-    dragFrame.InputChanged:Connect(function(input)
+    frame.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             dragInput = input
         end
@@ -132,20 +134,19 @@ local function MakeDraggable(guiObject, dragFrame)
         end
     end)
 end
+-- SCALING LOGIC END
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 MainFrame.BorderSizePixel = 0
-MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -225)
 MainFrame.Size = UDim2.new(0, 350, 0, 450)
 MainFrame.Active = true
+MakeDraggable(MainFrame)
 
-local MainScale = Instance.new("UIScale")
-MainScale.Parent = MainFrame
-MainScale.Scale = 1
+local MainFrameScale = AddUIScale(MainFrame) -- Add Scale to MainFrame
 
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 8)
@@ -162,8 +163,6 @@ TitleBar.Parent = MainFrame
 TitleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 TitleBar.BorderSizePixel = 0
 TitleBar.Size = UDim2.new(1, 0, 0, 45)
-
-MakeDraggable(MainFrame, TitleBar)
 
 local TitleCorner = Instance.new("UICorner")
 TitleCorner.CornerRadius = UDim.new(0, 8)
@@ -227,12 +226,11 @@ ContentFrame.Parent = MainFrame
 ContentFrame.BackgroundTransparency = 1
 ContentFrame.Position = UDim2.new(0, 15, 0, 100)
 ContentFrame.Size = UDim2.new(1, -30, 1, -115)
-ContentFrame.ScrollBarThickness = 6
+ContentFrame.ScrollBarThickness = 3
 ContentFrame.BorderSizePixel = 0
 ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+ContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y -- FIXED: Auto scroll size
 ContentFrame.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
-ContentFrame.ScrollingEnabled = true
-ContentFrame.ClipsDescendants = true
 
 local ContentLayout = Instance.new("UIListLayout")
 ContentLayout.Parent = ContentFrame
@@ -278,7 +276,8 @@ local function CreateTab(name)
     tabContent.Name = name .. "Content"
     tabContent.Parent = ContentFrame
     tabContent.BackgroundTransparency = 1
-    tabContent.Size = UDim2.new(1, 0, 0, 0) 
+    tabContent.Size = UDim2.new(1, 0, 0, 0)
+    tabContent.AutomaticSize = Enum.AutomaticSize.Y -- FIXED: Content auto resize
     tabContent.Visible = false
     
     local tabLayout = Instance.new("UIListLayout")
@@ -290,12 +289,7 @@ local function CreateTab(name)
     tab.Content = tabContent
     tab.Layout = tabLayout
     
-    -- FORCE SCROLL UPDATE
-    RunService.RenderStepped:Connect(function()
-        if tabContent.Visible then
-            ContentFrame.CanvasSize = UDim2.new(0, 0, 0, tabLayout.AbsoluteContentSize.Y + 350)
-        end
-    end)
+    -- Removed manual CanvasSize calculations as AutomaticCanvasSize handles it now
     
     tabButton.MouseButton1Click:Connect(function()
         for _, t in pairs(Tabs) do
@@ -308,15 +302,12 @@ local function CreateTab(name)
         tabButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
         tabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
         CurrentTab = tab
-        
-        ContentFrame.CanvasPosition = Vector2.new(0, 0)
     end)
     
     Tabs[name] = tab
     return tab
 end
 
--- ... [Rest of the UI Helper functions: CreateToggle, CreateSlider, etc. remain identical]
 local function CreateToggle(name, default, callback, parent)
     local toggleFrame = Instance.new("Frame")
     toggleFrame.Name = name .. "Toggle"
@@ -373,11 +364,14 @@ local function CreateToggle(name, default, callback, parent)
     
     button.MouseButton1Click:Connect(function()
         isEnabled = not isEnabled
+        
         local bgColor = isEnabled and Color3.fromRGB(60, 60, 60) or Color3.fromRGB(35, 35, 35)
         local btnColor = isEnabled and Color3.fromRGB(200, 200, 200) or Color3.fromRGB(100, 100, 100)
         local btnPos = isEnabled and UDim2.new(0, 22, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+        
         TweenService:Create(switchBg, TweenInfo.new(0.2), {BackgroundColor3 = bgColor}):Play()
         TweenService:Create(switchButton, TweenInfo.new(0.2), {BackgroundColor3 = btnColor, Position = btnPos}):Play()
+        
         callback(isEnabled)
     end)
     
@@ -391,9 +385,11 @@ local function CreateSlider(name, min, max, default, callback, parent)
     sliderFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
     sliderFrame.BorderSizePixel = 0
     sliderFrame.Size = UDim2.new(1, 0, 0, 45)
+    
     local sliderCorner = Instance.new("UICorner")
     sliderCorner.CornerRadius = UDim.new(0, 4)
     sliderCorner.Parent = sliderFrame
+    
     local label = Instance.new("TextLabel")
     label.Parent = sliderFrame
     label.BackgroundTransparency = 1
@@ -404,6 +400,7 @@ local function CreateSlider(name, min, max, default, callback, parent)
     label.TextColor3 = Color3.fromRGB(220, 220, 220)
     label.TextSize = 12
     label.TextXAlignment = Enum.TextXAlignment.Left
+    
     local valueLabel = Instance.new("TextLabel")
     valueLabel.Parent = sliderFrame
     valueLabel.BackgroundTransparency = 1
@@ -414,35 +411,49 @@ local function CreateSlider(name, min, max, default, callback, parent)
     valueLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
     valueLabel.TextSize = 11
     valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+    
     local sliderBar = Instance.new("Frame")
     sliderBar.Parent = sliderFrame
     sliderBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     sliderBar.BorderSizePixel = 0
     sliderBar.Position = UDim2.new(0, 12, 0, 28)
     sliderBar.Size = UDim2.new(1, -24, 0, 6)
+    
     local sliderBarCorner = Instance.new("UICorner")
     sliderBarCorner.CornerRadius = UDim.new(1, 0)
     sliderBarCorner.Parent = sliderBar
+    
     local sliderFill = Instance.new("Frame")
     sliderFill.Parent = sliderBar
     sliderFill.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
     sliderFill.BorderSizePixel = 0
     sliderFill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
+    
     local sliderFillCorner = Instance.new("UICorner")
     sliderFillCorner.CornerRadius = UDim.new(1, 0)
     sliderFillCorner.Parent = sliderFill
+    
     local isDragging = false
+    
     local function updateSlider(position)
-        local relativePos = math.clamp((position.X - sliderBar.AbsolutePosition.X) / sliderBar.AbsoluteSize.X, 0, 1)
+        local relativePos = math.clamp(
+            (position.X - sliderBar.AbsolutePosition.X) / sliderBar.AbsoluteSize.X, 
+            0, 
+            1
+        )
         local value = min + (max - min) * relativePos
+        
         sliderFill.Size = UDim2.new(relativePos, 0, 1, 0)
         valueLabel.Text = tostring(math.floor(value * 100) / 100)
         callback(value)
     end
+    
     sliderBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+           input.UserInputType == Enum.UserInputType.Touch then
             isDragging = true
             updateSlider(input.Position)
+            
             local connection
             connection = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
@@ -452,11 +463,16 @@ local function CreateSlider(name, min, max, default, callback, parent)
             end)
         end
     end)
+    
     UserInputService.InputChanged:Connect(function(input)
-        if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            updateSlider(input.Position)
+        if isDragging then
+            if input.UserInputType == Enum.UserInputType.MouseMovement or 
+               input.UserInputType == Enum.UserInputType.Touch then
+                updateSlider(input.Position)
+            end
         end
     end)
+    
     return sliderFrame
 end
 
@@ -467,9 +483,11 @@ local function CreateInput(name, default, callback, parent)
     inputFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
     inputFrame.BorderSizePixel = 0
     inputFrame.Size = UDim2.new(1, 0, 0, 45)
+    
     local inputCorner = Instance.new("UICorner")
     inputCorner.CornerRadius = UDim.new(0, 4)
     inputCorner.Parent = inputFrame
+    
     local label = Instance.new("TextLabel")
     label.Parent = inputFrame
     label.BackgroundTransparency = 1
@@ -480,6 +498,7 @@ local function CreateInput(name, default, callback, parent)
     label.TextColor3 = Color3.fromRGB(220, 220, 220)
     label.TextSize = 12
     label.TextXAlignment = Enum.TextXAlignment.Left
+    
     local inputBox = Instance.new("TextBox")
     inputBox.Parent = inputFrame
     inputBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
@@ -492,13 +511,16 @@ local function CreateInput(name, default, callback, parent)
     inputBox.TextColor3 = Color3.fromRGB(200, 200, 200)
     inputBox.TextSize = 11
     inputBox.ClearTextOnFocus = false
+    
     local inputBoxCorner = Instance.new("UICorner")
     inputBoxCorner.CornerRadius = UDim.new(0, 3)
     inputBoxCorner.Parent = inputBox
+    
     local inputPadding = Instance.new("UIPadding")
     inputPadding.PaddingLeft = UDim.new(0, 6)
     inputPadding.PaddingRight = UDim.new(0, 6)
     inputPadding.Parent = inputBox
+    
     inputBox.FocusLost:Connect(function(enterPressed)
         local value = tonumber(inputBox.Text)
         if value then
@@ -509,6 +531,7 @@ local function CreateInput(name, default, callback, parent)
             inputBox.Text = tostring(default)
         end
     end)
+    
     return inputFrame
 end
 
@@ -518,9 +541,11 @@ local function CreateLabel(text, parent)
     labelFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
     labelFrame.BorderSizePixel = 0
     labelFrame.Size = UDim2.new(1, 0, 0, 28)
+    
     local labelCorner = Instance.new("UICorner")
     labelCorner.CornerRadius = UDim.new(0, 4)
     labelCorner.Parent = labelFrame
+    
     local label = Instance.new("TextLabel")
     label.Parent = labelFrame
     label.BackgroundTransparency = 1
@@ -532,6 +557,7 @@ local function CreateLabel(text, parent)
     label.TextSize = 11
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.TextWrapped = true
+    
     return labelFrame, label
 end
 
@@ -542,17 +568,40 @@ end
 
 local function GetRandomBodyPart(character)
     local bodyParts = {}
+    
     if Config.UseCustomParts and #Config.CustomTargetParts > 0 then
         for _, partName in ipairs(Config.CustomTargetParts) do
-            if character:FindFirstChild(partName) then table.insert(bodyParts, partName) end
+            if character:FindFirstChild(partName) then
+                table.insert(bodyParts, partName)
+            end
         end
     else
-        local standardParts = {"Head", "HumanoidRootPart", "Torso", "UpperTorso", "LowerTorso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}
-        for _, p in ipairs(standardParts) do
-            if character:FindFirstChild(p) then table.insert(bodyParts, p) end
-        end
+        if character:FindFirstChild("Head") then table.insert(bodyParts, "Head") end
+        if character:FindFirstChild("HumanoidRootPart") then table.insert(bodyParts, "HumanoidRootPart") end
+        if character:FindFirstChild("Torso") then table.insert(bodyParts, "Torso") end
+        if character:FindFirstChild("Left Arm") then table.insert(bodyParts, "Left Arm") end
+        if character:FindFirstChild("Right Arm") then table.insert(bodyParts, "Right Arm") end
+        if character:FindFirstChild("Left Leg") then table.insert(bodyParts, "Left Leg") end
+        if character:FindFirstChild("Right Leg") then table.insert(bodyParts, "Right Leg") end
+        if character:FindFirstChild("UpperTorso") then table.insert(bodyParts, "UpperTorso") end
+        if character:FindFirstChild("LowerTorso") then table.insert(bodyParts, "LowerTorso") end
+        if character:FindFirstChild("LeftUpperArm") then table.insert(bodyParts, "LeftUpperArm") end
+        if character:FindFirstChild("RightUpperArm") then table.insert(bodyParts, "RightUpperArm") end
+        if character:FindFirstChild("LeftLowerArm") then table.insert(bodyParts, "LeftLowerArm") end
+        if character:FindFirstChild("RightLowerArm") then table.insert(bodyParts, "RightLowerArm") end
+        if character:FindFirstChild("LeftHand") then table.insert(bodyParts, "LeftHand") end
+        if character:FindFirstChild("RightHand") then table.insert(bodyParts, "RightHand") end
+        if character:FindFirstChild("LeftUpperLeg") then table.insert(bodyParts, "LeftUpperLeg") end
+        if character:FindFirstChild("RightUpperLeg") then table.insert(bodyParts, "RightUpperLeg") end
+        if character:FindFirstChild("LeftLowerLeg") then table.insert(bodyParts, "LeftLowerLeg") end
+        if character:FindFirstChild("RightLowerLeg") then table.insert(bodyParts, "RightLowerLeg") end
+        if character:FindFirstChild("LeftFoot") then table.insert(bodyParts, "LeftFoot") end
+        if character:FindFirstChild("RightFoot") then table.insert(bodyParts, "RightFoot") end
     end
-    if #bodyParts > 0 then return bodyParts[math.random(1, #bodyParts)] end
+    
+    if #bodyParts > 0 then
+        return bodyParts[math.random(1, #bodyParts)]
+    end
     return "Head"
 end
 
@@ -563,9 +612,11 @@ local function CreateMultiToggle(name, options, parent)
     multiToggleFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
     multiToggleFrame.BorderSizePixel = 0
     multiToggleFrame.Size = UDim2.new(1, 0, 0, 25 + (#options * 28))
+    
     local multiToggleCorner = Instance.new("UICorner")
     multiToggleCorner.CornerRadius = UDim.new(0, 4)
     multiToggleCorner.Parent = multiToggleFrame
+    
     local titleLabel = Instance.new("TextLabel")
     titleLabel.Parent = multiToggleFrame
     titleLabel.BackgroundTransparency = 1
@@ -576,12 +627,14 @@ local function CreateMultiToggle(name, options, parent)
     titleLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
     titleLabel.TextSize = 12
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
     for i, option in ipairs(options) do
         local optionFrame = Instance.new("Frame")
         optionFrame.Parent = multiToggleFrame
         optionFrame.BackgroundTransparency = 1
         optionFrame.Position = UDim2.new(0, 12, 0, 20 + ((i - 1) * 28))
         optionFrame.Size = UDim2.new(1, -24, 0, 24)
+        
         local optionLabel = Instance.new("TextLabel")
         optionLabel.Parent = optionFrame
         optionLabel.BackgroundTransparency = 1
@@ -591,6 +644,7 @@ local function CreateMultiToggle(name, options, parent)
         optionLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
         optionLabel.TextSize = 11
         optionLabel.TextXAlignment = Enum.TextXAlignment.Left
+        
         local checkbox = Instance.new("TextButton")
         checkbox.Parent = optionFrame
         checkbox.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
@@ -602,23 +656,32 @@ local function CreateMultiToggle(name, options, parent)
         checkbox.TextColor3 = Color3.fromRGB(120, 120, 120)
         checkbox.TextSize = 9
         checkbox.AutoButtonColor = false
+        
         local checkboxCorner = Instance.new("UICorner")
         checkboxCorner.CornerRadius = UDim.new(0, 3)
         checkboxCorner.Parent = checkbox
+        
         local isEnabled = false
+        
         checkbox.MouseButton1Click:Connect(function()
             isEnabled = not isEnabled
             checkbox.Text = isEnabled and "ON" or "OFF"
             checkbox.BackgroundColor3 = isEnabled and Color3.fromRGB(60, 60, 60) or Color3.fromRGB(35, 35, 35)
             checkbox.TextColor3 = isEnabled and Color3.fromRGB(200, 200, 200) or Color3.fromRGB(120, 120, 120)
+            
             if isEnabled then
-                if not table.find(Config.CustomTargetParts, option) then table.insert(Config.CustomTargetParts, option) end
+                if not table.find(Config.CustomTargetParts, option) then
+                    table.insert(Config.CustomTargetParts, option)
+                end
             else
                 local index = table.find(Config.CustomTargetParts, option)
-                if index then table.remove(Config.CustomTargetParts, index) end
+                if index then
+                    table.remove(Config.CustomTargetParts, index)
+                end
             end
         end)
     end
+    
     return multiToggleFrame
 end
 
@@ -629,9 +692,11 @@ local function CreatePlayerList(name, parent, onAddCallback, onRemoveCallback)
     listFrame.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
     listFrame.BorderSizePixel = 0
     listFrame.Size = UDim2.new(1, 0, 0, 180)
+    
     local listCorner = Instance.new("UICorner")
     listCorner.CornerRadius = UDim.new(0, 4)
     listCorner.Parent = listFrame
+    
     local titleLabel = Instance.new("TextLabel")
     titleLabel.Parent = listFrame
     titleLabel.BackgroundTransparency = 1
@@ -642,6 +707,7 @@ local function CreatePlayerList(name, parent, onAddCallback, onRemoveCallback)
     titleLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
     titleLabel.TextSize = 12
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
     local scrollFrame = Instance.new("ScrollingFrame")
     scrollFrame.Parent = listFrame
     scrollFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
@@ -651,16 +717,20 @@ local function CreatePlayerList(name, parent, onAddCallback, onRemoveCallback)
     scrollFrame.ScrollBarThickness = 3
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
     scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
+    
     local scrollCorner = Instance.new("UICorner")
     scrollCorner.CornerRadius = UDim.new(0, 4)
     scrollCorner.Parent = scrollFrame
+    
     local listLayout = Instance.new("UIListLayout")
     listLayout.Parent = scrollFrame
     listLayout.SortOrder = Enum.SortOrder.LayoutOrder
     listLayout.Padding = UDim.new(0, 4)
+    
     listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         scrollFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 5)
     end)
+    
     local inputBox = Instance.new("TextBox")
     inputBox.Parent = listFrame
     inputBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
@@ -674,12 +744,15 @@ local function CreatePlayerList(name, parent, onAddCallback, onRemoveCallback)
     inputBox.TextSize = 11
     inputBox.TextXAlignment = Enum.TextXAlignment.Left
     inputBox.ClearTextOnFocus = false
+    
     local inputCorner = Instance.new("UICorner")
     inputCorner.CornerRadius = UDim.new(0, 4)
     inputCorner.Parent = inputBox
+    
     local inputPadding = Instance.new("UIPadding")
     inputPadding.PaddingLeft = UDim.new(0, 8)
     inputPadding.Parent = inputBox
+    
     local addButton = Instance.new("TextButton")
     addButton.Parent = listFrame
     addButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
@@ -691,18 +764,22 @@ local function CreatePlayerList(name, parent, onAddCallback, onRemoveCallback)
     addButton.TextColor3 = Color3.fromRGB(200, 200, 200)
     addButton.TextSize = 11
     addButton.AutoButtonColor = false
+    
     local addCorner = Instance.new("UICorner")
     addCorner.CornerRadius = UDim.new(0, 4)
     addCorner.Parent = addButton
+    
     local function createPlayerEntry(playerName)
         local entryFrame = Instance.new("Frame")
         entryFrame.Parent = scrollFrame
         entryFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
         entryFrame.BorderSizePixel = 0
         entryFrame.Size = UDim2.new(1, -5, 0, 22)
+        
         local entryCorner = Instance.new("UICorner")
         entryCorner.CornerRadius = UDim.new(0, 3)
         entryCorner.Parent = entryFrame
+        
         local nameLabel = Instance.new("TextLabel")
         nameLabel.Parent = entryFrame
         nameLabel.BackgroundTransparency = 1
@@ -714,6 +791,7 @@ local function CreatePlayerList(name, parent, onAddCallback, onRemoveCallback)
         nameLabel.TextSize = 10
         nameLabel.TextXAlignment = Enum.TextXAlignment.Left
         nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        
         local removeButton = Instance.new("TextButton")
         removeButton.Parent = entryFrame
         removeButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
@@ -725,30 +803,50 @@ local function CreatePlayerList(name, parent, onAddCallback, onRemoveCallback)
         removeButton.TextColor3 = Color3.fromRGB(180, 180, 180)
         removeButton.TextSize = 14
         removeButton.AutoButtonColor = false
+        
         local removeCorner = Instance.new("UICorner")
         removeCorner.CornerRadius = UDim.new(0, 3)
         removeCorner.Parent = removeButton
+        
         removeButton.MouseButton1Click:Connect(function()
             entryFrame:Destroy()
-            if onRemoveCallback then onRemoveCallback(playerName) end
+            if onRemoveCallback then
+                onRemoveCallback(playerName)
+            end
         end)
+        
         return entryFrame
     end
+    
     addButton.MouseButton1Click:Connect(function()
         local playerName = inputBox.Text:gsub("^%s*(.-)%s*$", "%1")
         if playerName ~= "" then
             local isDuplicate = false
             for _, child in ipairs(scrollFrame:GetChildren()) do
-                if child:IsA("Frame") and child:FindFirstChild("TextLabel") and child.TextLabel.Text == playerName then isDuplicate = true break end
+                if child:IsA("Frame") and child:FindFirstChild("TextLabel") then
+                    if child.TextLabel.Text == playerName then
+                        isDuplicate = true
+                        break
+                    end
+                end
             end
+            
             if not isDuplicate then
                 createPlayerEntry(playerName)
-                if onAddCallback then onAddCallback(playerName) end
+                if onAddCallback then
+                    onAddCallback(playerName)
+                end
                 inputBox.Text = ""
             end
         end
     end)
-    inputBox.FocusLost:Connect(function(enterPressed) if enterPressed then addButton.MouseButton1Click:Fire() end end)
+    
+    inputBox.FocusLost:Connect(function(enterPressed)
+        if enterPressed then
+            addButton.MouseButton1Click:Fire()
+        end
+    end)
+    
     return listFrame
 end
 
@@ -868,7 +966,7 @@ local predictionValueFrame, predictionValueLabel = CreateLabel("Current: 0ms", P
 
 -- Settings Tab Content
 CreateSection("QUICK ACCESS", SettingsTab.Content)
-CreateToggle("Show Quick Aimbot", true, function(value) 
+CreateToggle("Show Quick Aimbot", false, function(value) 
     Config.ShowQuickAccess = value
     if QuickAimbotButton then
         QuickAimbotButton.Visible = value
@@ -876,14 +974,33 @@ CreateToggle("Show Quick Aimbot", true, function(value)
 end, SettingsTab.Content)
 
 CreateSection("HEALTH THRESHOLD", SettingsTab.Content)
-CreateToggle("Enable Health Stop", false, function(value) Config.UseHealthThreshold = value end, SettingsTab.Content)
-CreateInput("Stop at Health", Config.HealthThreshold, function(value) Config.HealthThreshold = value end, SettingsTab.Content)
+
+CreateToggle("Enable Health Stop", false, function(value) 
+    Config.UseHealthThreshold = value 
+end, SettingsTab.Content)
+
+CreateInput("Stop at Health", Config.HealthThreshold, function(value)
+    Config.HealthThreshold = value
+end, SettingsTab.Content)
 
 CreateSection("BLACKLIST", SettingsTab.Content)
-CreateToggle("Enable Blacklist", false, function(value) Config.UseBlacklist = value end, SettingsTab.Content)
+
+CreateToggle("Enable Blacklist", false, function(value) 
+    Config.UseBlacklist = value 
+end, SettingsTab.Content)
+
 CreatePlayerList("Blacklisted Players", SettingsTab.Content, 
-    function(playerName) if not table.find(Config.BlacklistedPlayers, playerName) then table.insert(Config.BlacklistedPlayers, playerName) end end,
-    function(playerName) local index = table.find(Config.BlacklistedPlayers, playerName) if index then table.remove(Config.BlacklistedPlayers, index) end end
+    function(playerName)
+        if not table.find(Config.BlacklistedPlayers, playerName) then
+            table.insert(Config.BlacklistedPlayers, playerName)
+        end
+    end,
+    function(playerName)
+        local index = table.find(Config.BlacklistedPlayers, playerName)
+        if index then
+            table.remove(Config.BlacklistedPlayers, index)
+        end
+    end
 )
 
 -- Info Tab Content
@@ -898,12 +1015,28 @@ Tabs["AIMBOT"].Button.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 Tabs["AIMBOT"].Button.TextColor3 = Color3.fromRGB(255, 255, 255)
 Tabs["AIMBOT"].Content.Visible = true
 CurrentTab = Tabs["AIMBOT"]
+-- ContentFrame.CanvasSize = UDim2.new(0, 0, 0, Tabs["AIMBOT"].Layout.AbsoluteContentSize.Y + 10) -- REMOVED
 
-CloseButton.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
-CloseButton.MouseEnter:Connect(function() CloseButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40) end)
-CloseButton.MouseLeave:Connect(function() CloseButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30) end)
+CloseButton.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
 
-if gethui then ScreenGui.Parent = gethui() elseif syn and syn.protect_gui then syn.protect_gui(ScreenGui) ScreenGui.Parent = game.CoreGui else ScreenGui.Parent = game.CoreGui end
+CloseButton.MouseEnter:Connect(function()
+    CloseButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+end)
+
+CloseButton.MouseLeave:Connect(function()
+    CloseButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+end)
+
+if gethui then
+    ScreenGui.Parent = gethui()
+elseif syn and syn.protect_gui then
+    syn.protect_gui(ScreenGui)
+    ScreenGui.Parent = game.CoreGui
+else
+    ScreenGui.Parent = game.CoreGui
+end
 
 local ToggleButton = Instance.new("TextButton")
 ToggleButton.Name = "ToggleButton"
@@ -919,20 +1052,19 @@ ToggleButton.TextSize = 18
 ToggleButton.ZIndex = 1000
 ToggleButton.Active = true
 ToggleButton.AutoButtonColor = false
+MakeDraggable(ToggleButton) -- Apply better dragging
 
-local ToggleScale = Instance.new("UIScale")
-ToggleScale.Parent = ToggleButton
-ToggleScale.Scale = 1
-
-MakeDraggable(ToggleButton, ToggleButton)
+local ToggleButtonScale = AddUIScale(ToggleButton) -- Scale Toggle Button
 
 local ToggleCorner = Instance.new("UICorner")
 ToggleCorner.CornerRadius = UDim.new(0, 8)
 ToggleCorner.Parent = ToggleButton
+
 local ToggleBorder = Instance.new("UIStroke")
 ToggleBorder.Color = Color3.fromRGB(60, 60, 60)
 ToggleBorder.Thickness = 1
 ToggleBorder.Parent = ToggleButton
+
 local ToggleLabel = Instance.new("TextLabel")
 ToggleLabel.Name = "Label"
 ToggleLabel.Parent = ToggleButton
@@ -944,6 +1076,7 @@ ToggleLabel.Text = "NH"
 ToggleLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 ToggleLabel.TextSize = 20
 ToggleLabel.ZIndex = 1001
+
 local StatusLabel = Instance.new("TextLabel")
 StatusLabel.Parent = ToggleButton
 StatusLabel.BackgroundTransparency = 1
@@ -957,18 +1090,34 @@ StatusLabel.ZIndex = 1001
 
 local isVisible = true
 local clickStartTime = 0
-local clickThreshold = 0.2
-ToggleButton.MouseButton1Down:Connect(function() clickStartTime = tick() end)
+local clickThreshold = 0.15
+
+ToggleButton.MouseButton1Down:Connect(function()
+    clickStartTime = tick()
+end)
+
 ToggleButton.MouseButton1Up:Connect(function()
     local clickDuration = tick() - clickStartTime
     if clickDuration < clickThreshold then
         isVisible = not isVisible
         MainFrame.Visible = isVisible
         StatusLabel.Text = isVisible and "OPEN" or "CLOSED"
-        TweenService:Create(ToggleButton, TweenInfo.new(0.2), {BackgroundColor3 = isVisible and Color3.fromRGB(25, 25, 25) or Color3.fromRGB(35, 35, 35)}):Play()
+        
+        TweenService:Create(ToggleButton, TweenInfo.new(0.2), {
+            BackgroundColor3 = isVisible and Color3.fromRGB(25, 25, 25) or Color3.fromRGB(35, 35, 35)
+        }):Play()
     end
 end)
 
+ToggleButton.MouseEnter:Connect(function()
+    TweenService:Create(ToggleButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30, 30, 30)}):Play()
+end)
+
+ToggleButton.MouseLeave:Connect(function()
+    TweenService:Create(ToggleButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(25, 25, 25)}):Play()
+end)
+
+-- Quick Access Aimbot Button
 QuickAimbotButton = Instance.new("TextButton")
 QuickAimbotButton.Name = "QuickAimbotButton"
 QuickAimbotButton.Parent = ScreenGui
@@ -984,20 +1133,19 @@ QuickAimbotButton.ZIndex = 1000
 QuickAimbotButton.Active = true
 QuickAimbotButton.Visible = Config.ShowQuickAccess
 QuickAimbotButton.AutoButtonColor = false
+MakeDraggable(QuickAimbotButton) -- Apply better dragging
 
-local QuickScale = Instance.new("UIScale")
-QuickScale.Parent = QuickAimbotButton
-QuickScale.Scale = 1
-
-MakeDraggable(QuickAimbotButton, QuickAimbotButton)
+local QuickAimbotScale = AddUIScale(QuickAimbotButton) -- Scale Quick Button
 
 local QuickCorner = Instance.new("UICorner")
 QuickCorner.CornerRadius = UDim.new(0, 8)
 QuickCorner.Parent = QuickAimbotButton
+
 QuickBorder = Instance.new("UIStroke")
 QuickBorder.Color = Color3.fromRGB(60, 60, 60)
 QuickBorder.Thickness = 1
 QuickBorder.Parent = QuickAimbotButton
+
 local QuickLabel = Instance.new("TextLabel")
 QuickLabel.Name = "Label"
 QuickLabel.Parent = QuickAimbotButton
@@ -1009,6 +1157,7 @@ QuickLabel.Text = "🎯"
 QuickLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 QuickLabel.TextSize = 24
 QuickLabel.ZIndex = 1001
+
 QuickStatusLabel = Instance.new("TextLabel")
 QuickStatusLabel.Parent = QuickAimbotButton
 QuickStatusLabel.BackgroundTransparency = 1
@@ -1021,31 +1170,41 @@ QuickStatusLabel.TextSize = 9
 QuickStatusLabel.ZIndex = 1001
 
 local quickClickStartTime = 0
-local quickClickThreshold = 0.2
-QuickAimbotButton.MouseButton1Down:Connect(function() quickClickStartTime = tick() end)
+local quickClickThreshold = 0.15
+
+QuickAimbotButton.MouseButton1Down:Connect(function()
+    quickClickStartTime = tick()
+end)
+
 QuickAimbotButton.MouseButton1Up:Connect(function()
     local clickDuration = tick() - quickClickStartTime
     if clickDuration < quickClickThreshold then
         State.AimbotActive = not State.AimbotActive
+        
         QuickStatusLabel.Text = State.AimbotActive and "ON" or "OFF"
         QuickStatusLabel.TextColor3 = State.AimbotActive and Color3.fromRGB(150, 200, 150) or Color3.fromRGB(150, 150, 150)
-        TweenService:Create(QuickAimbotButton, TweenInfo.new(0.2), {BackgroundColor3 = State.AimbotActive and Color3.fromRGB(40, 50, 40) or Color3.fromRGB(25, 25, 25)}):Play()
-        TweenService:Create(QuickBorder, TweenInfo.new(0.2), {Color = State.AimbotActive and Color3.fromRGB(100, 150, 100) or Color3.fromRGB(60, 60, 60)}):Play()
+        
+        TweenService:Create(QuickAimbotButton, TweenInfo.new(0.2), {
+            BackgroundColor3 = State.AimbotActive and Color3.fromRGB(40, 50, 40) or Color3.fromRGB(25, 25, 25)
+        }):Play()
+        
+        TweenService:Create(QuickBorder, TweenInfo.new(0.2), {
+            Color = State.AimbotActive and Color3.fromRGB(100, 150, 100) or Color3.fromRGB(60, 60, 60)
+        }):Play()
     end
 end)
 
-local function UpdateScale()
-    local viewport = Camera.ViewportSize
-    local baseHeight = 900
-    local rawScale = viewport.Y / baseHeight
-    local clampedScale = math.clamp(rawScale, 0.6, 1.3)
-    MainScale.Scale = clampedScale
-    ToggleScale.Scale = clampedScale
-    QuickScale.Scale = clampedScale
-end
+QuickAimbotButton.MouseEnter:Connect(function()
+    TweenService:Create(QuickAimbotButton, TweenInfo.new(0.2), {
+        BackgroundColor3 = State.AimbotActive and Color3.fromRGB(45, 55, 45) or Color3.fromRGB(30, 30, 30)
+    }):Play()
+end)
 
-Camera:GetPropertyChangedSignal("ViewportSize"):Connect(UpdateScale)
-UpdateScale()
+QuickAimbotButton.MouseLeave:Connect(function()
+    TweenService:Create(QuickAimbotButton, TweenInfo.new(0.2), {
+        BackgroundColor3 = State.AimbotActive and Color3.fromRGB(40, 50, 40) or Color3.fromRGB(25, 25, 25)
+    }):Play()
+end)
 
 local function CreateFOVCircle()
     State.FOVCircle = Drawing.new("Circle")
@@ -1059,44 +1218,80 @@ local function CreateFOVCircle()
 end
 
 local function CreateCrosshair()
+    -- Top line
     State.CrosshairLines.Top = Drawing.new("Line")
+    State.CrosshairLines.Top.Thickness = Config.CrosshairThickness
+    State.CrosshairLines.Top.Color = Config.CrosshairColor
+    State.CrosshairLines.Top.Transparency = Config.CrosshairTransparency
+    State.CrosshairLines.Top.Visible = Config.ShowCrosshair
+    
+    -- Bottom line
     State.CrosshairLines.Bottom = Drawing.new("Line")
+    State.CrosshairLines.Bottom.Thickness = Config.CrosshairThickness
+    State.CrosshairLines.Bottom.Color = Config.CrosshairColor
+    State.CrosshairLines.Bottom.Transparency = Config.CrosshairTransparency
+    State.CrosshairLines.Bottom.Visible = Config.ShowCrosshair
+    
+    -- Left line
     State.CrosshairLines.Left = Drawing.new("Line")
+    State.CrosshairLines.Left.Thickness = Config.CrosshairThickness
+    State.CrosshairLines.Left.Color = Config.CrosshairColor
+    State.CrosshairLines.Left.Transparency = Config.CrosshairTransparency
+    State.CrosshairLines.Left.Visible = Config.ShowCrosshair
+    
+    -- Right line
     State.CrosshairLines.Right = Drawing.new("Line")
+    State.CrosshairLines.Right.Thickness = Config.CrosshairThickness
+    State.CrosshairLines.Right.Color = Config.CrosshairColor
+    State.CrosshairLines.Right.Transparency = Config.CrosshairTransparency
+    State.CrosshairLines.Right.Visible = Config.ShowCrosshair
 end
 
 local function UpdateCrosshair()
     if not Config.ShowCrosshair then return end
+    
     local centerX = Camera.ViewportSize.X / 2
     local centerY = Camera.ViewportSize.Y / 2
+    
     local size = Config.CrosshairSize
     local gap = Config.CrosshairGap
-    local color = Config.RainbowCrosshair and GetRainbowColor() or Config.CrosshairColor
     
-    local lines = State.CrosshairLines
-    lines.Top.From = Vector2.new(centerX, centerY - gap)
-    lines.Top.To = Vector2.new(centerX, centerY - gap - size)
-    lines.Bottom.From = Vector2.new(centerX, centerY + gap)
-    lines.Bottom.To = Vector2.new(centerX, centerY + gap + size)
-    lines.Left.From = Vector2.new(centerX - gap, centerY)
-    lines.Left.To = Vector2.new(centerX - gap - size, centerY)
-    lines.Right.From = Vector2.new(centerX + gap, centerY)
-    lines.Right.To = Vector2.new(centerX + gap + size, centerY)
+    -- Update rainbow color if enabled
+    local crosshairColor = Config.RainbowCrosshair and GetRainbowColor() or Config.CrosshairColor
     
-    for _, line in pairs(lines) do
-        line.Color = color
-        line.Thickness = Config.CrosshairThickness
-        line.Transparency = Config.CrosshairTransparency
-        line.Visible = true
-    end
+    -- Top line
+    State.CrosshairLines.Top.From = Vector2.new(centerX, centerY - gap)
+    State.CrosshairLines.Top.To = Vector2.new(centerX, centerY - gap - size)
+    State.CrosshairLines.Top.Color = crosshairColor
+    State.CrosshairLines.Top.Visible = Config.ShowCrosshair
+    
+    -- Bottom line
+    State.CrosshairLines.Bottom.From = Vector2.new(centerX, centerY + gap)
+    State.CrosshairLines.Bottom.To = Vector2.new(centerX, centerY + gap + size)
+    State.CrosshairLines.Bottom.Color = crosshairColor
+    State.CrosshairLines.Bottom.Visible = Config.ShowCrosshair
+    
+    -- Left line
+    State.CrosshairLines.Left.From = Vector2.new(centerX - gap, centerY)
+    State.CrosshairLines.Left.To = Vector2.new(centerX - gap - size, centerY)
+    State.CrosshairLines.Left.Color = crosshairColor
+    State.CrosshairLines.Left.Visible = Config.ShowCrosshair
+    
+    -- Right line
+    State.CrosshairLines.Right.From = Vector2.new(centerX + gap, centerY)
+    State.CrosshairLines.Right.To = Vector2.new(centerX + gap + size, centerY)
+    State.CrosshairLines.Right.Color = crosshairColor
+    State.CrosshairLines.Right.Visible = Config.ShowCrosshair
 end
 
 local function UpdateFOVCircle()
     if State.FOVCircle then
         State.FOVCircle.Visible = State.AimbotActive
         State.FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-        State.FOVCircle.Radius = Config.AimbotFOV
-        if Config.RainbowFOV then State.FOVCircle.Color = GetRainbowColor() end
+        
+        if Config.RainbowFOV then
+            State.FOVCircle.Color = GetRainbowColor()
+        end
     end
 end
 
@@ -1105,15 +1300,60 @@ local function IsVisible(targetPart)
     local targetPos = targetPart.Position
     local direction = (targetPos - origin).Unit
     local distance = (targetPos - origin).Magnitude
+    
     local raycastParams = RaycastParams.new()
     raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, targetPart.Parent}
     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
     local raycastResult = workspace:Raycast(origin, direction * distance, raycastParams)
-    return not raycastResult
+    
+    if not raycastResult then
+        return true
+    end
+    
+    return false
+end
+
+local function UpdateVelocityBuffer(currentVelocity)
+    table.insert(State.VelocityBuffer, currentVelocity)
+    if #State.VelocityBuffer > Config.VelocityHistory then
+        table.remove(State.VelocityBuffer, 1)
+    end
+end
+
+local function CalculateAcceleration(targetPart)
+    if not State.LastTargetPosition then
+        State.LastTargetPosition = targetPart.Position
+        return Vector3.new(0, 0, 0)
+    end
+    
+    local currentTime = tick()
+    local deltaTime = currentTime - State.LastUpdateTime
+    local currentVelocity = targetPart.Velocity
+    
+    local acceleration = (currentVelocity - (State.VelocityBuffer[#State.VelocityBuffer] or Vector3.new(0, 0, 0))) / deltaTime
+    
+    State.LastTargetPosition = targetPart.Position
+    State.LastUpdateTime = currentTime
+    
+    return acceleration
+end
+
+local function CalculateTrackingSpeed(targetVelocity, acceleration)
+    local velocityMagnitude = targetVelocity.Magnitude
+    local baseSpeed = math.clamp(velocityMagnitude / 50, Config.MinTrackingSpeed, Config.MaxTrackingSpeed)
+    
+    local accelerationMagnitude = acceleration.Magnitude
+    local accelerationFactor = math.clamp(accelerationMagnitude / 100, 0, 1) * Config.AccelerationWeight
+    
+    local finalSpeed = baseSpeed * (1 + accelerationFactor)
+    
+    return math.clamp(finalSpeed, Config.MinTrackingSpeed, Config.MaxTrackingSpeed)
 end
 
 local function GetPlayerPing()
-    return game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
+    local Stats = game:GetService("Stats")
+    return Stats.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
 end
 
 local function GetNearestPlayerInFOV()
@@ -1121,25 +1361,33 @@ local function GetNearestPlayerInFOV()
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
     for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character:FindFirstChild("HumanoidRootPart") then
-            if Config.UseBlacklist and table.find(Config.BlacklistedPlayers, player.Name) then continue end
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") then
+            if Config.UseBlacklist and table.find(Config.BlacklistedPlayers, player.Name) then
+                continue
+            end
             
-            local humanoid = player.Character.Humanoid
-            if (not Config.IgnoreDeadPlayers or humanoid.Health > 0) then
-                if Config.UseHealthThreshold and humanoid.Health <= Config.HealthThreshold then continue end
-                if Config.TeamCheck and player.Team == LocalPlayer.Team then continue end
+            local humanoid = player.Character:FindFirstChild("Humanoid")
+            if humanoid and (not Config.IgnoreDeadPlayers or humanoid.Health > 0) then
+                if Config.UseHealthThreshold and humanoid.Health <= Config.HealthThreshold then
+                    continue
+                end
                 
-                local partToCheck = "Head"
-                local targetPart = player.Character:FindFirstChild(partToCheck)
-                if targetPart then
-                    local screenPos, onScreen = Camera:WorldToScreenPoint(targetPart.Position)
-                    if onScreen then
-                        local distanceFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                        if distanceFromCenter <= Config.AimbotFOV then
-                            local distance = (targetPart.Position - Camera.CFrame.Position).Magnitude
-                            if distance < nearestDistance then
-                                if not Config.WallCheck or IsVisible(targetPart) then
-                                    nearestDistance, nearestPlayer = distance, player
+                if not Config.TeamCheck or player.Team ~= LocalPlayer.Team then
+                    local partToCheck = "Head"
+                    local targetPart = player.Character:FindFirstChild(partToCheck)
+                    
+                    if targetPart then
+                        local screenPos, onScreen = Camera:WorldToScreenPoint(targetPart.Position)
+                        
+                        if onScreen then
+                            local distanceFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                            
+                            if distanceFromCenter <= Config.AimbotFOV then
+                                local distance = (targetPart.Position - Camera.CFrame.Position).Magnitude
+                                if distance < nearestDistance then
+                                    if not Config.WallCheck or IsVisible(targetPart) then
+                                        nearestDistance, nearestPlayer = distance, player
+                                    end
                                 end
                             end
                         end
@@ -1151,6 +1399,54 @@ local function GetNearestPlayerInFOV()
     return nearestPlayer
 end
 
+local function CreateESPObject(player)
+    local esp = {}
+    
+    esp.Box = Drawing.new("Square")
+    esp.Box.Thickness = 1
+    esp.Box.Filled = false
+    esp.Box.Color = Config.ESPColor
+    esp.Box.Visible = false
+
+    esp.Name = Drawing.new("Text")
+    esp.Name.Center = true
+    esp.Name.Outline = true
+    esp.Name.Color = Config.ESPColor
+    esp.Name.Size = 14
+    esp.Name.Visible = false
+
+    esp.Distance = Drawing.new("Text")
+    esp.Distance.Center = true
+    esp.Distance.Outline = true
+    esp.Distance.Color = Config.ESPColor
+    esp.Distance.Size = 14
+    esp.Distance.Visible = false
+
+    esp.Health = Drawing.new("Text")
+    esp.Health.Center = true
+    esp.Health.Outline = true
+    esp.Health.Color = Config.ESPColor
+    esp.Health.Size = 14
+    esp.Health.Visible = false
+
+    esp.Tracer = Drawing.new("Line")
+    esp.Tracer.Thickness = 1
+    esp.Tracer.Color = Config.ESPColor
+    esp.Tracer.Visible = false
+
+    State.ESPObjects[player] = esp
+end
+
+local function RemoveESPObject(player)
+    local esp = State.ESPObjects[player]
+    if esp then
+        for _, object in pairs(esp) do
+            object:Remove()
+        end
+        State.ESPObjects[player] = nil
+    end
+end
+
 local function UpdateESP()
     for player, esp in pairs(State.ESPObjects) do
         if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") then
@@ -1158,51 +1454,76 @@ local function UpdateESP()
             local humanoid = player.Character.Humanoid
             local vector, onScreen = Camera:WorldToViewportPoint(hrp.Position)
             local distance = (hrp.Position - Camera.CFrame.Position).Magnitude
-            local espColor = Config.RainbowESP and GetRainbowColor() or (Config.TeamCheck and (player.Team == LocalPlayer.Team and Config.TeamColor or Config.EnemyColor) or Config.EnemyColor)
+
+            local espColor
+            if Config.RainbowESP then
+                espColor = GetRainbowColor()
+            elseif Config.TeamCheck then
+                espColor = (player.Team == LocalPlayer.Team) and Config.TeamColor or Config.EnemyColor
+            else
+                espColor = Config.EnemyColor
+            end
 
             if onScreen and distance <= Config.MaxESPDistance and State.ESPEnabled then
                 if Config.ESPBoxes then
-                    local rootPos = Camera:WorldToViewportPoint(hrp.Position)
-                    local headPos = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 3, 0))
-                    local legPos = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
-                    esp.Box.Size = Vector2.new(2000 / rootPos.Z, headPos.Y - legPos.Y)
+                    local rootPart = player.Character.HumanoidRootPart
+                    local head = player.Character.Head
+                    local rootPos = Camera:WorldToViewportPoint(rootPart.Position)
+                    local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+                    local legPos = Camera:WorldToViewportPoint(rootPart.Position - Vector3.new(0, 3, 0))
+
+                    esp.Box.Size = Vector2.new(2350 / rootPos.Z, headPos.Y - legPos.Y)
                     esp.Box.Position = Vector2.new(rootPos.X - esp.Box.Size.X / 2, rootPos.Y - esp.Box.Size.Y / 2)
                     esp.Box.Color = espColor
                     esp.Box.Visible = true
-                else esp.Box.Visible = false end
-                
+                else
+                    esp.Box.Visible = false
+                end
+
                 if Config.ESPNames then
                     esp.Name.Text = player.Name
                     esp.Name.Position = Vector2.new(vector.X, vector.Y - 40)
                     esp.Name.Color = espColor
                     esp.Name.Visible = true
-                else esp.Name.Visible = false end
-                
+                else
+                    esp.Name.Visible = false
+                end
+
                 if Config.ESPDistance then
-                    esp.Distance.Text = string.format("%.0f m", distance)
+                    esp.Distance.Text = string.format("%.0f studs", distance)
                     esp.Distance.Position = Vector2.new(vector.X, vector.Y + 40)
                     esp.Distance.Color = espColor
                     esp.Distance.Visible = true
-                else esp.Distance.Visible = false end
-                
+                else
+                    esp.Distance.Visible = false
+                end
+
                 if Config.ESPHealth then
                     esp.Health.Text = string.format("%.0f HP", humanoid.Health)
                     esp.Health.Position = Vector2.new(vector.X, vector.Y + 60)
                     esp.Health.Color = espColor
                     esp.Health.Visible = true
-                else esp.Health.Visible = false end
-                
+                else
+                    esp.Health.Visible = false
+                end
+
                 if Config.ESPTracer then
                     esp.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
                     esp.Tracer.To = Vector2.new(vector.X, vector.Y)
                     esp.Tracer.Color = espColor
                     esp.Tracer.Visible = true
-                else esp.Tracer.Visible = false end
+                else
+                    esp.Tracer.Visible = false
+                end
             else
-                for _, object in pairs(esp) do object.Visible = false end
+                for _, object in pairs(esp) do
+                    object.Visible = false
+                end
             end
         else
-            for _, object in pairs(esp) do object.Visible = false end
+            for _, object in pairs(esp) do
+                object.Visible = false
+            end
         end
     end
 end
@@ -1211,22 +1532,40 @@ local function UpdateFPS()
     frameCount = frameCount + 1
     local currentTime = tick()
     local elapsed = currentTime - lastUpdate
+    
     if elapsed >= 1 then
-        fpsLabel.Text = "FPS: " .. math.floor(frameCount / elapsed)
+        local currentFPS = math.floor(frameCount / elapsed)
+        fpsLabel.Text = "FPS: " .. currentFPS
         frameCount = 0
         lastUpdate = currentTime
     end
 end
 
 local function UpdatePing()
-    pingLabel.Text = "Ping: " .. math.floor(GetPlayerPing() * 1000) .. "ms"
+    local Stats = game:GetService("Stats")
+    local currentPing = Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
+    pingLabel.Text = "Ping: " .. math.floor(currentPing) .. "ms"
 end
 
 CreateFOVCircle()
 CreateCrosshair()
 
--- !!! KEY FIX: Use BindToRenderStep with HIGH PRIORITY to prevent Camera fighting !!!
-RunService:BindToRenderStep("NurkHubAimbot", Enum.RenderPriority.Camera.Value + 1, function()
+-- AUTO SCALING LOOP
+-- Resizes UI based on screen height to maintain consistency across PC and Mobile
+RunService.RenderStepped:Connect(function()
+    local currentViewport = Camera.ViewportSize
+    -- Reference height: 900px (Standard PC monitor height approximation for UI scaling)
+    local scaleFactor = currentViewport.Y / 900
+    
+    -- Clamp scale to prevent it from getting too tiny or too huge
+    scaleFactor = math.clamp(scaleFactor, 0.4, 1.2)
+
+    if MainFrameScale then MainFrameScale.Scale = scaleFactor end
+    if ToggleButtonScale then ToggleButtonScale.Scale = scaleFactor end
+    if QuickAimbotScale then QuickAimbotScale.Scale = scaleFactor end
+end)
+
+RunService.RenderStepped:Connect(function()
     UpdateFOVCircle()
     UpdateCrosshair()
     UpdateESP()
@@ -1237,11 +1576,13 @@ RunService:BindToRenderStep("NurkHubAimbot", Enum.RenderPriority.Camera.Value + 
         State.TargetPlayer = GetNearestPlayerInFOV()
         if State.TargetPlayer then
             targetLabel.Text = "Target: " .. State.TargetPlayer.Name
+            
             local targetPartName = Config.AimbotTargetPart
             
             if Config.RandomTargetPart then
                 local currentTime = tick()
-                if State.TargetPlayer ~= State.LastTargetPlayer or (currentTime - State.LastRandomPartUpdate >= Config.RandomTargetPartInterval) then
+                if State.TargetPlayer ~= State.LastTargetPlayer or 
+                   (currentTime - State.LastRandomPartUpdate >= Config.RandomTargetPartInterval) then
                     State.CurrentRandomPart = GetRandomBodyPart(State.TargetPlayer.Character)
                     State.LastRandomPartUpdate = currentTime
                     State.LastTargetPlayer = State.TargetPlayer
@@ -1250,59 +1591,114 @@ RunService:BindToRenderStep("NurkHubAimbot", Enum.RenderPriority.Camera.Value + 
             end
             
             targetPartLabel.Text = "Part: " .. targetPartName
-            local targetPart = State.TargetPlayer.Character:FindFirstChild(targetPartName)
             
+            local targetPart = State.TargetPlayer.Character:FindFirstChild(targetPartName)
             if targetPart then
-                 local currentHumanoid = State.TargetPlayer.Character:FindFirstChild("Humanoid")
-                 if Config.UseHealthThreshold and currentHumanoid and currentHumanoid.Health <= Config.HealthThreshold then
-                     State.TargetPlayer = nil
-                     return
-                 end
-                 
-                 if Config.WallCheck and not IsVisible(targetPart) then
-                     targetLabel.Text = "Target: " .. State.TargetPlayer.Name .. " (Wall)"
-                     State.TargetPlayer = nil
-                     return
-                 end
-                 
-                 local predictionTime = 0
-                 if Config.AutoPrediction then
-                     local ping = GetPlayerPing()
-                     predictionTime = math.clamp(ping * 0.4, 0.01, 0.2)
-                     predictionValueLabel.Text = string.format("Pred: %.0fms", predictionTime * 1000)
-                 end
-                 
-                 local predictedPos = targetPart.Position + (targetPart.Velocity * predictionTime)
-                 
-                 -- Simple, robust look vector calculation
-                 local currentCFrame = Camera.CFrame
-                 local lookAt = CFrame.new(currentCFrame.Position, predictedPos)
-                 
-                 -- Fixed Smoothing Math (Linear Interpolation)
-                 Camera.CFrame = currentCFrame:Lerp(lookAt, Config.AimbotSmoothness)
+                local currentHumanoid = State.TargetPlayer.Character:FindFirstChild("Humanoid")
+                if Config.UseHealthThreshold and currentHumanoid and currentHumanoid.Health <= Config.HealthThreshold then
+                    targetLabel.Text = "Target: None (low health)"
+                    State.TargetPlayer = nil
+                    State.LastTargetPosition = nil
+                    State.VelocityBuffer = {}
+                    State.CurrentRandomPart = nil
+                    State.LastTargetPlayer = nil
+                    return
+                end
+                
+                if Config.WallCheck and not IsVisible(targetPart) then
+                    targetLabel.Text = "Target: None (blocked)"
+                    State.TargetPlayer = nil
+                    State.LastTargetPosition = nil
+                    State.VelocityBuffer = {}
+                    State.CurrentRandomPart = nil
+                    State.LastTargetPlayer = nil
+                    return
+                end
+                
+                local targetPos = targetPart.Position
+                local targetVel = targetPart.Velocity
+                local cameraPosition = Camera.CFrame.Position
+                
+                UpdateVelocityBuffer(targetVel)
+                local acceleration = CalculateAcceleration(targetPart)
+                local trackingSpeed = CalculateTrackingSpeed(targetVel, acceleration)
+                
+                local predictionTime = 0
+                
+                if Config.AutoPrediction then
+                    local ping = GetPlayerPing()
+                    
+                    local basePrediction = ping * 0.8
+                    local velocityFactor = math.clamp(targetVel.Magnitude / 100, 0.5, 2)
+                    local distance = (targetPos - cameraPosition).Magnitude
+                    local distanceFactor = math.clamp(distance / 500, 0.8, 1.2)
+                    
+                    predictionTime = basePrediction * velocityFactor * distanceFactor
+                    predictionTime = math.clamp(predictionTime, 0.01, 0.3)
+                    
+                    predictionValueLabel.Text = string.format("Current: %.0fms (Ping: %.0fms)", predictionTime * 1000, ping * 1000)
+                end
+                
+                local gravityCompensation = Vector3.new(0, 0, 0)
+                if targetPartName == "HumanoidRootPart" or targetPartName == "Torso" or targetPartName == "UpperTorso" then
+                    local gravity = workspace.Gravity
+                    gravityCompensation = Vector3.new(0, -0.5 * gravity * predictionTime * predictionTime, 0)
+                end
+                
+                local predictedPos = targetPos + 
+                                   (targetVel * predictionTime) + 
+                                   (acceleration * predictionTime * predictionTime * 0.5) + 
+                                   gravityCompensation
+                
+                local randomOffset = Vector3.new(
+                    math.random(-5, 5) / 100,
+                    math.random(-5, 5) / 100,
+                    math.random(-5, 5) / 100
+                )
+                predictedPos = predictedPos + randomOffset
+                
+                local lookVector = (predictedPos - cameraPosition).Unit
+                local targetCFrame = CFrame.new(cameraPosition, cameraPosition + lookVector)
+                
+                local dynamicSmoothness = math.min(1, Config.AimbotSmoothness / trackingSpeed)
+                
+                Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, dynamicSmoothness)
             end
         else
             targetLabel.Text = "Target: None"
             targetPartLabel.Text = "Part: " .. (Config.RandomTargetPart and "Random" or Config.AimbotTargetPart)
+            State.LastTargetPosition = nil
+            State.VelocityBuffer = {}
+            State.CurrentRandomPart = nil
+            State.LastTargetPlayer = nil
         end
     else
         targetLabel.Text = "Target: None"
+        targetPartLabel.Text = "Part: " .. (Config.RandomTargetPart and "Random" or Config.AimbotTargetPart)
+        State.CurrentRandomPart = nil
+        State.LastTargetPlayer = nil
     end
 end)
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and input.KeyCode == Config.AimbotKey then
         State.AimbotActive = not State.AimbotActive
-        QuickStatusLabel.Text = State.AimbotActive and "ON" or "OFF"
-        QuickStatusLabel.TextColor3 = State.AimbotActive and Color3.fromRGB(150, 200, 150) or Color3.fromRGB(150, 150, 150)
-        TweenService:Create(QuickAimbotButton, TweenInfo.new(0.2), {BackgroundColor3 = State.AimbotActive and Color3.fromRGB(40, 50, 40) or Color3.fromRGB(25, 25, 25)}):Play()
-        TweenService:Create(QuickBorder, TweenInfo.new(0.2), {Color = State.AimbotActive and Color3.fromRGB(100, 150, 100) or Color3.fromRGB(60, 60, 60)}):Play()
     end
 end)
 
-Players.PlayerAdded:Connect(function(player) CreateESPObject(player) end)
-Players.PlayerRemoving:Connect(function(player) RemoveESPObject(player) end)
-for _, player in ipairs(Players:GetPlayers()) do if player ~= LocalPlayer then CreateESPObject(player) end end
+Players.PlayerAdded:Connect(function(player)
+    CreateESPObject(player)
+end)
 
-print("Nurk Hub V1.6.6 loaded successfully!")
-print("Fixed Aimbot Logic & Scrolling")
+Players.PlayerRemoving:Connect(function(player)
+    RemoveESPObject(player)
+end)
+
+for _, player in ipairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        CreateESPObject(player)
+    end
+end
+
+print("Nurk Hub V1.6.6 Mobile loaded successfully!")
+print("Auto-Scaling Enabled")
