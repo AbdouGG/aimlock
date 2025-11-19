@@ -77,6 +77,142 @@ local State = {
     CrosshairLines = {}
 }
 
+-- ==========================================
+--             LOADING SCREEN UI
+-- ==========================================
+
+local function PlayLoadingScreen()
+    local LoadingGui = Instance.new("ScreenGui")
+    LoadingGui.Name = "NurkHubLoading"
+    LoadingGui.IgnoreGuiInset = true
+    
+    -- Protected GUI parent check
+    if gethui then
+        LoadingGui.Parent = gethui()
+    elseif syn and syn.protect_gui then
+        syn.protect_gui(LoadingGui)
+        LoadingGui.Parent = game.CoreGui
+    else
+        LoadingGui.Parent = game.CoreGui
+    end
+
+    -- Main Loading Frame
+    local LoadFrame = Instance.new("Frame")
+    LoadFrame.Name = "LoadFrame"
+    LoadFrame.Parent = LoadingGui
+    LoadFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    LoadFrame.BorderSizePixel = 0
+    LoadFrame.Position = UDim2.new(0.5, -150, 0.5, -80)
+    LoadFrame.Size = UDim2.new(0, 300, 0, 160)
+    LoadFrame.ClipsDescendants = true
+
+    local LoadCorner = Instance.new("UICorner")
+    LoadCorner.CornerRadius = UDim.new(0, 10)
+    LoadCorner.Parent = LoadFrame
+
+    local LoadStroke = Instance.new("UIStroke")
+    LoadStroke.Color = Color3.fromRGB(60, 60, 60)
+    LoadStroke.Thickness = 1
+    LoadStroke.Parent = LoadFrame
+
+    -- Title
+    local LoadTitle = Instance.new("TextLabel")
+    LoadTitle.Parent = LoadFrame
+    LoadTitle.BackgroundTransparency = 1
+    LoadTitle.Position = UDim2.new(0, 0, 0, 20)
+    LoadTitle.Size = UDim2.new(1, 0, 0, 30)
+    LoadTitle.Font = Enum.Font.GothamBold
+    LoadTitle.Text = "NURK HUB"
+    LoadTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    LoadTitle.TextSize = 24
+
+    -- Version
+    local LoadVer = Instance.new("TextLabel")
+    LoadVer.Parent = LoadFrame
+    LoadVer.BackgroundTransparency = 1
+    LoadVer.Position = UDim2.new(0, 0, 0, 50)
+    LoadVer.Size = UDim2.new(1, 0, 0, 20)
+    LoadVer.Font = Enum.Font.Gotham
+    LoadVer.Text = "Mobile Version 1.6.6"
+    LoadVer.TextColor3 = Color3.fromRGB(150, 150, 150)
+    LoadVer.TextSize = 14
+
+    -- Loading Bar Background
+    local BarBack = Instance.new("Frame")
+    BarBack.Parent = LoadFrame
+    BarBack.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    BarBack.BorderSizePixel = 0
+    BarBack.Position = UDim2.new(0, 30, 0, 90)
+    BarBack.Size = UDim2.new(1, -60, 0, 6)
+    
+    local BarCorner = Instance.new("UICorner")
+    BarCorner.CornerRadius = UDim.new(1, 0)
+    BarCorner.Parent = BarBack
+
+    -- Loading Bar Fill
+    local BarFill = Instance.new("Frame")
+    BarFill.Parent = BarBack
+    BarFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    BarFill.BorderSizePixel = 0
+    BarFill.Size = UDim2.new(0, 0, 1, 0)
+    
+    local FillCorner = Instance.new("UICorner")
+    FillCorner.CornerRadius = UDim.new(1, 0)
+    FillCorner.Parent = BarFill
+
+    -- Status Text
+    local StatusText = Instance.new("TextLabel")
+    StatusText.Parent = LoadFrame
+    StatusText.BackgroundTransparency = 1
+    StatusText.Position = UDim2.new(0, 0, 0, 110)
+    StatusText.Size = UDim2.new(1, 0, 0, 20)
+    StatusText.Font = Enum.Font.Gotham
+    StatusText.Text = "Initializing..."
+    StatusText.TextColor3 = Color3.fromRGB(100, 100, 100)
+    StatusText.TextSize = 12
+
+    -- Animation Sequence
+    local steps = {
+        {0.1, "Checking Whitelist...", 0.5},
+        {0.3, "Loading Assets...", 0.4},
+        {0.5, "Initializing Scripts...", 0.6},
+        {0.8, "Optimizing for Mobile...", 0.4},
+        {1.0, "Done!", 0.3}
+    }
+
+    for _, step in ipairs(steps) do
+        local targetScale = step[1]
+        local text = step[2]
+        local waitTime = step[3]
+
+        StatusText.Text = text
+        TweenService:Create(BarFill, TweenInfo.new(waitTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(targetScale, 0, 1, 0)}):Play()
+        task.wait(waitTime)
+    end
+
+    task.wait(0.2)
+    
+    -- Fade out
+    local fadeInfo = TweenInfo.new(0.5)
+    TweenService:Create(LoadFrame, fadeInfo, {BackgroundTransparency = 1}):Play()
+    TweenService:Create(LoadStroke, fadeInfo, {Transparency = 1}):Play()
+    TweenService:Create(LoadTitle, fadeInfo, {TextTransparency = 1}):Play()
+    TweenService:Create(LoadVer, fadeInfo, {TextTransparency = 1}):Play()
+    TweenService:Create(BarBack, fadeInfo, {BackgroundTransparency = 1}):Play()
+    TweenService:Create(BarFill, fadeInfo, {BackgroundTransparency = 1}):Play()
+    TweenService:Create(StatusText, fadeInfo, {TextTransparency = 1}):Play()
+    
+    task.wait(0.5)
+    LoadingGui:Destroy()
+end
+
+-- Run Loading Screen before Main UI
+PlayLoadingScreen()
+
+-- ==========================================
+--             MAIN SCRIPT START
+-- ==========================================
+
 -- Forward declarations
 local QuickAimbotButton
 local QuickStatusLabel
